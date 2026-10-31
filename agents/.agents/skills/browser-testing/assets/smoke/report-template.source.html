@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FEATURE · Smoke tests</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: var(--background, #0d1117);
+    --panel: var(--card, #161b22);
+    --panel-2: var(--secondary, #1c2330);
+    --text: var(--foreground, #e6edf3);
+    --muted: var(--muted-foreground, #8b949e);
+    --line: var(--border, #30363d);
+    --code-bg: var(--code-background, #1f2630);
+    --brand: #33bbee;
+    --pass: #3fb950; --fail: #f85149; --partial: #d29922; --skip: #a371f7; --todo: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--font-sans, "Segoe UI", system-ui, sans-serif); }
+  main { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; font: 0.86em var(--font-mono, Consolas, monospace); }
+
+  .eyebrow { color: var(--brand); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  h1 { margin: 4px 0 6px; font-size: 34px; line-height: 1.2; }
+  .lede { margin: 0; color: var(--muted); }
+  h2 { margin: 48px 0 16px; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+  h2::before { content: ""; width: 4px; height: 22px; border-radius: 2px; background: var(--brand); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+
+  .progress { display: flex; height: 10px; margin: 28px 0 12px; border-radius: 5px; overflow: hidden; background: var(--panel-2); }
+  .progress span { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--muted); }
+  .legend b { color: var(--text); font-size: 18px; margin-right: 4px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; }
+
+  .env { display: grid; grid-template-columns: max-content 1fr; gap: 8px 24px; margin: 24px 0 0; padding: 18px 22px; font-size: 15px; }
+  .env dt { color: var(--muted); }
+  .env dd { margin: 0; }
+
+  table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; font-size: 15px; }
+  td { padding: 10px 16px; border-top: 1px solid var(--line); vertical-align: middle; }
+  tr.group td { background: var(--panel-2); color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 8px 16px; }
+  tbody tr:first-child td { border-top: 0; }
+  td.n { width: 52px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  td.st { width: 120px; text-align: right; }
+
+  .pill { display: inline-block; padding: 2px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  [data-s=pass] .pill { color: var(--pass); background: rgba(63,185,80,.15); }
+  [data-s=fail] .pill { color: var(--fail); background: rgba(248,81,73,.15); }
+  [data-s=partial] .pill { color: var(--partial); background: rgba(210,153,34,.16); }
+  [data-s=skip] .pill { color: var(--skip); background: rgba(163,113,247,.16); }
+  [data-s=todo] .pill { color: var(--muted); background: rgba(110,118,129,.18); }
+  [data-s=pass] .pill::after { content: "✓ Pass"; }
+  [data-s=fail] .pill::after { content: "✕ Fail"; }
+  [data-s=partial] .pill::after { content: "◐ Partial"; }
+  [data-s=skip] .pill::after { content: "⤼ Skipped"; }
+  [data-s=todo] .pill::after { content: "Not run"; }
+  .findings td { vertical-align: top; }
+  .where { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+  .sev { display: inline-block; padding: 2px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  [data-sev=high] .sev { color: var(--fail); background: rgba(248,81,73,.15); }
+  [data-sev=medium] .sev { color: var(--partial); background: rgba(210,153,34,.16); }
+  [data-sev=low] .sev { color: var(--brand); background: rgba(51,187,238,.14); }
+  [data-sev=fixed] .sev { color: var(--pass); background: rgba(63,185,80,.15); }
+  [data-sev=fixed] b:first-child { color: var(--muted); }
+  .tag { margin-left: 8px; padding: 1px 8px; border: 1px solid rgba(51,187,238,.5); border-radius: 999px; color: var(--brand); font-size: 11px; font-weight: 600; vertical-align: 2px; }
+
+  .test { margin: 18px 0; padding: 22px 26px 18px; border-left: 4px solid var(--todo); }
+  .test[data-s=pass] { border-left-color: var(--pass); }
+  .test[data-s=fail] { border-left-color: var(--fail); }
+  .test[data-s=partial] { border-left-color: var(--partial); }
+  .test[data-s=skip] { border-left-color: var(--skip); }
+  .test > header { display: flex; align-items: center; gap: 14px; }
+  .test h3 { flex: 1; margin: 0; font-size: 19px; line-height: 1.35; }
+  .num { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--panel-2); color: var(--muted); font-weight: 700; font-size: 14px; }
+  h4 { margin: 18px 0 6px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  ul, ol { margin: 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  li::marker { color: var(--muted); }
+  .note { margin: 18px 0 0; padding: 12px 16px; border-radius: 8px; background: var(--panel-2); color: var(--muted); font-size: 15px; }
+  .note b { color: var(--text); }
+
+  figure { margin: 22px 0 0; }
+  figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  figcaption { margin-top: 8px; color: var(--muted); font-size: 14px; }
+  .back { display: inline-block; margin-top: 16px; font-size: 13px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .pair img { max-width: 340px; margin: 0 auto; }
+  .mini { margin-top: 8px; font-size: 14px; }
+  .mini th { padding: 8px 14px; text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; background: var(--panel-2); }
+  .mini td { padding: 7px 14px; }
+  .mk-click { color: #ffb000; font-weight: 600; }
+  .mk-change { color: #ff5a5f; font-weight: 600; }
+
+  .zoom { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; background: rgba(1,4,9,.92); cursor: zoom-out; }
+  .zoom img { max-width: 100%; max-height: 90%; border-radius: 6px; }
+  .zoom p { margin: 0; color: #c9d1d9; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+
+<div class="eyebrow">Smoke test report</div>
+<h1>FEATURE</h1>
+<p class="lede">What changed, checked in the browser against TARGET.</p>
+
+<div class="progress" id="progress"></div>
+<div class="legend" id="legend"></div>
+
+<dl class="env panel">
+  <dt>Started</dt><dd>YYYY-MM-DD</dd>
+  <dt>Code</dt><dd>Revision or branch, plus any uncommitted changes</dd>
+  <dt>Server</dt><dd>Local at <code>http://localhost:PORT/</code> or the deployed URL, and which database</dd>
+  <dt>Browser</dt><dd>T3 preview panel, profile, 1280 px wide</dd>
+  <dt>Logins</dt><dd>Which accounts were used, and for which tests</dd>
+  <dt>Screenshot marks</dt><dd>On marked screenshots, an <span class="mk-click">amber arrow</span> points at what was clicked and a <span class="mk-change">red box</span> surrounds what changed.</dd>
+  <dt>Data</dt><dd>Which tests wrote data, what they changed, and how it was put back and confirmed. "Read only" if nothing was written.</dd>
+</dl>
+
+<h2 id="summary">Summary</h2>
+<table class="panel">
+  <tbody>
+    <tr class="group"><td colspan="3">Group name</td></tr>
+    <tr data-s="todo"><td class="n">1</td><td><a href="#t1">Test title</a></td><td class="st"><span class="pill"></span></td></tr>
+  </tbody>
+</table>
+
+<h2 id="findings">Findings</h2>
+<table class="panel findings">
+  <tbody>
+    <tr data-sev="medium"><td class="n">F1</td><td><b>What is wrong, in one sentence.</b> Why it happens, and the suggested fix. <span class="where">Seen in test 1</span></td><td class="st"><span class="sev">Medium</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Results</h2>
+
+<article class="test panel" data-s="todo" id="t1">
+  <header><span class="num">1</span><h3>Test title</h3><span class="pill"></span></header>
+  <h4>Steps</h4>
+  <ol><li>Log in as LOGIN and open PAGE.</li></ol>
+  <div class="cols">
+    <div>
+      <h4>Expected</h4>
+      <ul><li>What should happen.</li></ul>
+    </div>
+    <div>
+      <h4>Actual</h4>
+      <ul><li>What happened, including the server calls and their statuses.</li></ul>
+    </div>
+  </div>
+  <div class="note"><b>Note:</b> anything the reader needs to know, such as why a test was skipped.</div>
+  <figure>
+    <img src="01-name-marked.png" alt="Short description">
+    <figcaption>What the screenshot shows and what the marks point at.</figcaption>
+  </figure>
+  <a class="back" href="#summary">↑ Back to summary</a>
+</article>
+
+</main>
+<script>
+  const labels = { pass: "Passed", fail: "Failed", partial: "Partial", skip: "Skipped", todo: "Not run" };
+  const rows = [...document.querySelectorAll("#summary + table tr[data-s]")];
+  const progress = document.getElementById("progress"), legend = document.getElementById("legend");
+  for (const s of Object.keys(labels)) {
+    const n = rows.filter(r => r.dataset.s === s).length;
+    if (!n) continue;
+    const color = getComputedStyle(document.documentElement).getPropertyValue("--" + s);
+    progress.insertAdjacentHTML("beforeend", `<span style="width:${100 * n / rows.length}%;background:${color}"></span>`);
+    legend.insertAdjacentHTML("beforeend", `<span><i style="background:${color}"></i><b>${n}</b>${labels[s]}</span>`);
+  }
+  document.addEventListener("click", e => {
+    const open = document.querySelector(".zoom");
+    if (open) { open.remove(); return; }
+    const img = e.target.closest("figure img");
+    if (!img) return;
+    const overlay = document.createElement("div");
+    overlay.className = "zoom";
+    overlay.append(img.cloneNode(), Object.assign(document.createElement("p"), { textContent: img.closest("figure").querySelector("figcaption")?.textContent || "" }));
+    document.body.append(overlay);
+  });
+</script>
+</body>
+</html>
