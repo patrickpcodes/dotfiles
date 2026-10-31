@@ -18,7 +18,7 @@ Dev only. {{CREDENTIALS_NOTE}}
 {{START_COMMAND}}
 ```
 
-- Run it with the Bash tool's `run_in_background` (timeout up to 7200000 ms). It stops when that ends.
+- Run it as a background process so the session can keep working. In Claude Code, use the Bash tool's `run_in_background` (timeout up to 7200000 ms); the app stops when that ends.
 - Ready when {{READY_CHECK}}.
 - {{PREREQUISITES}}
 - {{CHANGE_NOTES}}
@@ -35,7 +35,7 @@ Dev only. {{CREDENTIALS_NOTE}}
 
 ## 3. Driving the browser
 
-Load the tools first with ToolSearch:
+These tools come from T3 Code. Their prefix depends on the agent: `mcp__t3-code__` in Claude Code, `mcp__t3_code__` in Codex. In Claude Code, load them first with ToolSearch:
 `select:mcp__t3-code__preview_open,mcp__t3-code__preview_evaluate,mcp__t3-code__preview_navigate,mcp__t3-code__preview_snapshot,mcp__t3-code__preview_status,mcp__t3-code__preview_dialog,mcp__t3-code__preview_act,mcp__t3-code__preview_resize,mcp__t3-code__t3_preview_close`
 
 - Open: `preview_open({ url, reuseExistingTab: false })`. Use `profileId: "incognito"` for a clean session or a second login.
