@@ -30,13 +30,13 @@ One `AGENTS.md` holds my personal instructions for every coding agent. Claude Co
 
 A repo's own `AGENTS.md` is loaded by Codex and OpenCode. Claude Code loads it only when the repo has no `CLAUDE.md`, so `CLAUDE.md` tells Claude to read it in the other cases.
 
-### Why the installers create two links themselves
+### Why the installers create the Codex and OpenCode links themselves
 
 Codex and OpenCode need the same file at two more paths. Stow links each package file to one place, so sharing a file across packages would mean committing symlinks, which Git on Windows often checks out as plain text files. Instead the shared file lives once in the `agents` package, Stow links the `agents` and `claude` packages, and the installers link the Codex and OpenCode paths straight to the shared file.
 
 ### Install
 
-Both installers can be rerun safely. They leave correct links alone, replace links that point elsewhere, move a real file to `<file>.backup.<timestamp>` before replacing it, and print every change. They don't touch `~/.claude/settings.json` or `~/.codex/config.toml`.
+Both installers can be rerun safely. They leave correct links alone, replace links that point elsewhere, move a real file to `<file>.backup.<timestamp>` before replacing it, stop if a real folder is in the way, and print every change. They don't touch `~/.claude/settings.json` or `~/.codex/config.toml`.
 
 Windows (needs Developer Mode or an admin shell to create symlinks):
 
@@ -52,7 +52,7 @@ Linux and macOS:
 sudo pacman -S stow           # Arch/Omarchy; Debian/Ubuntu: sudo apt install stow; macOS: brew install stow
 cd ~/dotfiles
 ./install.sh --dry-run        # --dry-run (or -n) = list the changes without making them
-./install.sh                  # stow agents + claude, then link the Codex and OpenCode paths
+./install.sh                  # stow agents + claude, then link the Codex, OpenCode and skill paths
 ```
 
 To check, start a new session and ask which letters label Next Action Options (`j, k, l, o, p`). In Claude Code, `/context` lists `~/.claude/CLAUDE.md` and `~/.config/agents/AGENTS.md` under Memory files.
@@ -66,6 +66,34 @@ To check, start a new session and ask which letters label Next Action Options (`
 
 Changes apply to new sessions.
 
+## Skills
+
+Each of my own skills lives once in `agents/.agents/skills/`. Claude Code doesn't read `~/.agents/skills`, so the installers link every skill folder there into two places:
+
+| Home folder path | Links to | Read by |
+| --- | --- | --- |
+| `~/.agents/skills/<name>` | `agents/.agents/skills/<name>` | Codex, OpenCode |
+| `~/.claude/skills/<name>` | `agents/.agents/skills/<name>` | Claude Code, OpenCode |
+
+Each skill folder gets its own link, not the whole skills folder, because both folders also hold skills installed from elsewhere. `install.sh` tells stow to skip `.agents/skills`, because `--no-folding` would link each skill file separately.
+
+OpenCode finds each skill in both folders and logs a "duplicate skill name" warning, but loads one copy, and both are the same files. Setting `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1` removes the warning, but OpenCode then also stops loading the skills in `~/.claude/skills` that aren't in this repo.
+
+To add a skill, copy its folder into `agents/.agents/skills/`. Move the original out of `~/.claude/skills` and `~/.agents/skills`, because the installer stops at a real folder and a backup left beside it loads as a second copy. Then rerun the installer.
+
+To check which skills each tool sees:
+
+```bash
+codex debug prompt-input "hi" | grep -o 'browser-testing: .\{0,60\}'   # Codex: render the prompt it would send, find the skill entry
+opencode debug skill | grep '"location"'                             # OpenCode: list every skill it found and where
+```
+
+In Claude Code, type `/browser-testing` or ask which skills are available.
+
+### browser-testing
+
+Runs smoke tests in T3's preview browser, so it works only in threads where T3 provides its preview tools. On first use in a repo it writes a repo-specific testing doc from `template.md`; the `{{...}}` placeholders there are filled in at that point. Its report scripts in `assets/smoke/` need Python with Pillow (`pip install pillow`). `template.md` refers to `~/.agents/skills/browser-testing/assets/smoke/`, so keep that link.
+
 ## Repository structure
 
 Each top-level folder is a `stow` package.
@@ -77,6 +105,12 @@ Example:
   install.sh
   install.ps1
   agents/
+    .agents/
+      skills/
+        browser-testing/
+          SKILL.md
+          template.md
+          assets/smoke/
     .config/
       agents/
         AGENTS.md
