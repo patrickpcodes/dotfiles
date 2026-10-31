@@ -51,8 +51,8 @@ These tools come from T3 Code. Each agent adds its own prefix to their names, su
 - Log in. Replace `LOGIN` and `PASSWORD` with JSON string literals (what `JSON.stringify` returns), so a quote or backslash in a password can't break the code:
   ```js
   const s=(sel,v)=>{const e=document.querySelector(sel);Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e),'value').set.call(e,v);['input','change','blur'].forEach(t=>e.dispatchEvent(new Event(t,{bubbles:true})))};
-  s('{{USER_SELECTOR}}',LOGIN); s('{{PASSWORD_SELECTOR}}',PASSWORD);
-  document.querySelector('{{SUBMIT_SELECTOR}}').click();
+  s({{USER_SELECTOR}},LOGIN); s({{PASSWORD_SELECTOR}},PASSWORD);
+  document.querySelector({{SUBMIT_SELECTOR}}).click();
   ```
 - **15 s limit per evaluate.** For longer flows, start async work and store the result, then poll in later calls:
   ```js
@@ -61,8 +61,8 @@ These tools come from T3 Code. Each agent adds its own prefix to their names, su
   // call 2+, repeat until not 'pending'
   (async()=>{for(let i=0;i<13&&!window.__o;i++)await new Promise(r=>setTimeout(r,1000));return window.__o||'pending'})()
   ```
-- Click menu items, tabs and tree nodes by exact leaf text:
-  `[...document.querySelectorAll('*')].find(e=>e.children.length===0&&e.textContent.trim()==='<TEXT>'&&e.offsetParent).click()`
+- Click menu items, tabs and tree nodes by exact leaf text. Replace `TEXT` with a JSON string literal:
+  `[...document.querySelectorAll('*')].find(e=>e.children.length===0&&e.textContent.trim()===TEXT&&e.offsetParent).click()`
   Wait for the page to settle after logins and navigation: poll for an element or text rather than a fixed sleep.
 - Read the page: `document.body.innerText`.
 - Server calls and statuses: `performance.getEntriesByType('resource').map(r=>r.name+' '+r.responseStatus)`. {{API_URL_SHAPE}} HTTP 200 can still carry an app error in the body, so check it.

@@ -76,7 +76,7 @@ Never guess a value the user didn't give and the repo didn't show. Leave its lin
 | `LOGIN_ROWS` | one table row per account |
 | `ACCOUNT_NOTES` | how accounts relate, which own test data, disabled ones to avoid |
 | `UI_FRAMEWORK` | React, Vue, Angular, Knockout, ... |
-| `USER_SELECTOR`, `PASSWORD_SELECTOR`, `SUBMIT_SELECTOR` | login form selectors |
+| `USER_SELECTOR`, `PASSWORD_SELECTOR`, `SUBMIT_SELECTOR` | login form selectors, each as a JSON string literal with its quotes, like `"input[name='email']"` |
 | `API_URL_SHAPE` | like "API URLs look like `/api/orders/1`." |
 | `API_CALL` | how to call the API from the page with the session: `fetch` with cookies, a token from storage, or an app helper |
 | `SWITCH_USER` | default: "log out through the UI, then `preview_navigate` to the site root, or use an incognito tab". Add what to avoid |
