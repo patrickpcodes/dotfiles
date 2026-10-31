@@ -167,6 +167,10 @@ rm ~/.agents/skills/my-skill ~/.claude/skills/my-skill   # Linux/macOS: rm witho
 
 Runs smoke tests in T3's preview browser, so it works only in threads where T3 provides its preview tools. On first use in a repo it writes a repo-specific testing doc from `template.md`; the `{{...}}` placeholders there are filled in at that point. Its report scripts in `assets/smoke/` need Python with Pillow (`pip install pillow`). `template.md` refers to `~/.agents/skills/browser-testing/assets/smoke/`, so keep that link.
 
+### change-report
+
+Builds one HTML page for a set of code changes: the goal, the approach, testing and deployment notes, then every changed file's diff with a one-line reason. It works for SVN changelists and working copies, and for Git branches and worktrees. If you don't name a changelist or branch, it lists them and asks which one. The agent runs `scripts/collect.py` to gather one diff per file, writes the narrative and the reasons into a `report.json`, then runs `scripts/render.py` to write the page and a summary page without diffs. Both scripts need only Python 3.9+, and they write into the output folder you give them, never into the skill folder. `SKILL.md` refers to `~/.agents/skills/change-report/scripts/`, so keep that link.
+
 ## Repository structure
 
 Each top-level folder is a `stow` package.
@@ -184,6 +188,10 @@ Example:
           SKILL.md
           template.md
           assets/smoke/
+        change-report/
+          SKILL.md
+          scripts/
+          assets/
     .config/
       agents/
         AGENTS.md
