@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shared agent instructions: how the dotfiles setup works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Cascadia Mono', Consolas, monospace;
+
+    --bg: #f3f5fa;
+    --surface: #ffffff;
+    --surface2: #eaeef7;
+    --border: rgba(19, 35, 61, 0.09);
+    --border-bright: rgba(19, 35, 61, 0.18);
+    --text: #13233d;
+    --text-dim: #56657f;
+
+    --blue: #1f4fb8;
+    --blue-dim: rgba(31, 79, 184, 0.08);
+    --gold: #a86a0c;
+    --gold-dim: rgba(168, 106, 12, 0.10);
+    --green: #23804f;
+    --green-dim: rgba(35, 128, 79, 0.10);
+    --red: #c03030;
+    --red-dim: rgba(192, 48, 48, 0.09);
+
+    --claude: #c2410c;
+    --claude-dim: rgba(194, 65, 12, 0.09);
+    --codex: #0f766e;
+    --codex-dim: rgba(15, 118, 110, 0.09);
+    --opencode: #a86a0c;
+    --opencode-dim: rgba(168, 106, 12, 0.10);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1324;
+      --surface: #111c33;
+      --surface2: #172442;
+      --border: rgba(227, 233, 245, 0.08);
+      --border-bright: rgba(227, 233, 245, 0.16);
+      --text: #e3e9f5;
+      --text-dim: #93a3c2;
+
+      --blue: #82a8ff;
+      --blue-dim: rgba(130, 168, 255, 0.13);
+      --gold: #f0b84a;
+      --gold-dim: rgba(240, 184, 74, 0.12);
+      --green: #5fcf8f;
+      --green-dim: rgba(95, 207, 143, 0.12);
+      --red: #ff7b7b;
+      --red-dim: rgba(255, 123, 123, 0.12);
+
+      --claude: #fb923c;
+      --claude-dim: rgba(251, 146, 60, 0.13);
+      --codex: #2dd4bf;
+      --codex-dim: rgba(45, 212, 191, 0.12);
+      --opencode: #f0b84a;
+      --opencode-dim: rgba(240, 184, 74, 0.12);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 32px 32px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 40px;
+    min-height: 100vh;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate { animation: fadeUp 0.35s ease-out both; animation-delay: calc(var(--i, 0) * 0.05s); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* ============ LAYOUT + TOC ============ */
+  .wrap { max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 190px 1fr; gap: 0 44px; }
+  .main { min-width: 0; max-width: 1060px; }
+
+  .toc { position: sticky; top: 24px; align-self: start; padding: 14px 0; grid-row: 1 / -1; max-height: calc(100dvh - 48px); overflow-y: auto; }
+  .toc-title { font-family: var(--font-mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border-bright); }
+  .toc a { display: block; font-size: 12.5px; color: var(--text-dim); text-decoration: none; padding: 5px 9px; border-radius: 5px; border-left: 2px solid transparent; transition: all 0.15s; line-height: 1.4; margin-bottom: 1px; }
+  .toc a:hover { color: var(--text); background: var(--surface2); }
+  .toc a.active { color: var(--text); border-left-color: var(--blue); background: var(--surface); }
+
+  /* ============ TYPE ============ */
+  h1 { font-size: 40px; font-weight: 700; letter-spacing: -1px; line-height: 1.15; margin-bottom: 8px; text-wrap: balance; }
+  .subtitle { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); margin-bottom: 22px; }
+  .lead { font-size: 17px; max-width: 760px; margin-bottom: 26px; }
+
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin: 56px 0 8px; padding-top: 8px; border-top: 2px solid var(--border-bright); scroll-margin-top: 16px; }
+  .sec-head .num { font-family: var(--font-mono); font-size: 13px; color: var(--blue); font-weight: 600; }
+  .sec-head h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; }
+  .sec-intro { color: var(--text-dim); max-width: 780px; margin-bottom: 20px; }
+  h3 { font-size: 17px; font-weight: 600; margin: 26px 0 10px; }
+
+  p { overflow-wrap: break-word; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--blue-dim); color: var(--blue); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  pre { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 10px 0 16px; }
+  pre code { background: none; color: var(--text); padding: 0; font-size: inherit; overflow-wrap: normal; }
+  pre .c { color: var(--text-dim); }
+  pre .k { color: var(--blue); font-weight: 600; }
+  pre .del { color: var(--red); }
+  pre .add { color: var(--green); }
+
+  ul.plain { padding-left: 20px; margin: 6px 0 12px; }
+  ul.plain li { margin-bottom: 5px; }
+
+  /* ============ KPI STRIP ============ */
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border-bright); border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 0 var(--border), 0 8px 24px -18px rgba(19, 35, 61, 0.45); min-width: 0; }
+  .kpi .v { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; }
+  .kpi .l { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+  .kpi.blue .v { color: var(--blue); }
+  .kpi.gold .v { color: var(--gold); }
+  .kpi.green .v { color: var(--green); }
+
+  /* ============ CARDS ============ */
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+  .card h4 { font-size: 16px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card .meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; }
+  .card.claude { border-top: 3px solid var(--claude); }
+  .card.codex { border-top: 3px solid var(--codex); }
+  .card.opencode { border-top: 3px solid var(--opencode); }
+  .card.blue { border-top: 3px solid var(--blue); }
+  .card dl { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px 10px; font-size: 13.5px; }
+  .card dt { color: var(--text-dim); font-size: 12px; font-family: var(--font-mono); padding-top: 2px; }
+  .card dd { min-width: 0; overflow-wrap: break-word; }
+
+  .callout { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 16px 0; font-size: 14px; }
+  .callout.gold { border-left-color: var(--gold); }
+  .callout.green { border-left-color: var(--green); }
+  .callout strong { font-weight: 600; }
+
+  /* ============ CHIPS + DOTS ============ */
+  .chip { display: inline-block; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; vertical-align: middle; }
+  .chip.ok { background: var(--green-dim); color: var(--green); }
+  .chip.wait { background: var(--gold-dim); color: var(--gold); }
+  .chip.todo { background: var(--red-dim); color: var(--red); }
+  .chip.info { background: var(--blue-dim); color: var(--blue); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  .dot.claude { background: var(--claude); }
+  .dot.codex { background: var(--codex); }
+  .dot.opencode { background: var(--opencode); }
+
+  /* ============ TABLES ============ */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 10px 0 18px; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.5; }
+  caption { caption-side: top; text-align: left; font-size: 12px; color: var(--text-dim); padding: 10px 16px 0; font-family: var(--font-mono); }
+  th { background: var(--surface2); font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); text-align: left; padding: 11px 14px; border-bottom: 2px solid var(--border-bright); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; min-width: 120px; overflow-wrap: break-word; }
+  tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface2) 40%, transparent); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.rowhead { font-weight: 600; white-space: normal; min-width: 150px; }
+  th.claude { color: var(--claude); } th.codex { color: var(--codex); } th.opencode { color: var(--opencode); }
+
+  /* ============ MERMAID SHELL ============ */
+  .diagram-shell { position: relative; margin: 12px 0 20px; }
+  .diagram-shell__hint { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-bottom: 6px; opacity: 0.8; }
+  .mermaid-wrap { position: relative; background: var(--surface); border: 1px solid var(--border-bright); border-radius: 12px; overflow: hidden; min-height: 360px; cursor: grab; }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+  .zoom-controls { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 2px; z-index: 10; background: var(--surface); border: 1px solid var(--border-bright); border-radius: 6px; padding: 2px; }
+  .zoom-controls button { width: 28px; height: 28px; border: none; background: transparent; color: var(--text-dim); font-family: var(--font-mono); font-size: 13px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+  .zoom-controls button:hover { background: var(--surface2); color: var(--text); }
+  .zoom-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); padding: 0 6px; white-space: nowrap; }
+  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+  .mermaid-canvas { position: absolute; top: 0; left: 0; }
+  .mermaid .nodeLabel { font-family: var(--font-body) !important; font-size: 15px !important; }
+  .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1000px) {
+    body { padding: 0 20px 40px; }
+    .wrap { grid-template-columns: 1fr; }
+    .toc { position: sticky; top: 0; z-index: 200; max-height: none; display: flex; gap: 4px; align-items: center; overflow-x: auto; background: var(--bg); border-bottom: 1px solid var(--border-bright); padding: 10px 20px; margin: 0 -20px; grid-row: auto; }
+    .toc::-webkit-scrollbar { display: none; }
+    .toc-title { display: none; }
+    .toc a { white-space: nowrap; flex-shrink: 0; border-left: none; border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 11px; }
+    .toc a.active { border-left: none; border-bottom-color: var(--blue); }
+    .main { padding-top: 20px; }
+    .sec-head { scroll-margin-top: 56px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid3, .grid2 { grid-template-columns: 1fr; }
+    h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc" id="toc">
+  <div class="toc-title">Contents</div>
+  <a href="#s1">1. The idea</a>
+  <a href="#s2">2. Every file</a>
+  <a href="#s3">3. What each agent loads</a>
+  <a href="#s4">4. Repo AGENTS.md</a>
+  <a href="#s5">5. Per machine</a>
+  <a href="#s6">6. The installers</a>
+  <a href="#s7">7. The CLI proxy</a>
+  <a href="#s8">8. Adding rules</a>
+  <a href="#s9">9. Verified</a>
+  <a href="#s10">10. Status</a>
+</nav>
+
+<div class="main">
+
+  <h1 class="animate" style="--i:0">One AGENTS.md for Claude Code, Codex and OpenCode</h1>
+  <p class="subtitle animate" style="--i:1">patrickpcodes/dotfiles · master · updated 2026-10-31</p>
+  <p class="lead animate" style="--i:2">
+    Your personal agent rules live in <strong>one file</strong> in the dotfiles repo. On every machine, an installer
+    links each agent's global instruction path to that file, so editing it once updates all three agents everywhere.
+  </p>
+
+  <div class="kpis animate" style="--i:3">
+    <div class="kpi blue"><div class="v">1</div><div class="l">real file holding the shared rules</div></div>
+    <div class="kpi gold"><div class="v">4</div><div class="l">links per machine, made by the installer</div></div>
+    <div class="kpi"><div class="v">3</div><div class="l">agents: Claude Code, Codex, OpenCode</div></div>
+    <div class="kpi green"><div class="v">3</div><div class="l">systems: Windows, Linux, macOS</div></div>
+  </div>
+
+  <!-- ===================== 1 ===================== -->
+  <div id="s1" class="sec-head"><span class="num">01</span><h2>The idea</h2></div>
+  <p class="sec-intro">
+    Each agent looks for its global instructions in its own place. Those places become links (dashed arrows) that lead
+    back into the repo. Claude takes one extra step: its <code>CLAUDE.md</code> imports a fixed path, and that path is also a link.
+  </p>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom · drag to pan when zoomed · double-click to fit</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button type="button" data-action="zoom-fit" title="Fit">&#8634;</button>
+        <button type="button" data-action="zoom-one" title="1:1">1:1</button>
+        <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+        <span class="zoom-label">Loading...</span>
+      </div>
+      <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+flowchart TD
+  %%DEFS%%
+  subgraph tools["Agents"]
+    CL(["Claude Code"]):::claude
+    CX(["Codex"]):::codex
+    OC(["OpenCode"]):::opencode
+  end
+  subgraph home["Home folder: links made by the installer"]
+    HC["~/.claude/CLAUDE.md"]:::link
+    HA["~/.config/agents/AGENTS.md<br/>fixed path for the import"]:::link
+    HX["~/.codex/AGENTS.md"]:::link
+    HO["~/.config/opencode/AGENTS.md"]:::link
+  end
+  subgraph repo["dotfiles repo: the real files"]
+    RC["claude/.claude/CLAUDE.md<br/>@~/.config/agents/AGENTS.md<br/>+ Claude-only rules"]:::claude
+    RS["agents/.config/agents/AGENTS.md<br/>shared rules, the one real copy"]:::shared
+  end
+  CL -->|reads| HC
+  HC -.->|link| RC
+  RC -->|"@ import"| HA
+  HA -.->|link| RS
+  CX -->|reads| HX
+  HX -.->|link| RS
+  OC -->|reads| HO
+  HO -.->|link| RS
+    </script>
+  </section>
+
+  <div class="grid2">
+    <div class="callout">
+      <strong>Why Claude imports <code>~/.config/agents/AGENTS.md</code>.</strong>
+      The repo is at <code>F:\Repositories\dotfiles</code> on Windows and <code>~/dotfiles</code> on Enterprise.
+      The import uses a path that's the same on every machine, and the installer points it at whichever clone is local.
+    </div>
+    <div class="callout gold">
+      <strong>A link is a pointer, not a copy.</strong> Opening <code>~/.codex/AGENTS.md</code> opens the repo file.
+      Deleting a link never deletes its target. If the target is missing (for example, F: isn't mounted), the agent simply finds no file.
+    </div>
+  </div>
+
+  <h3>The one rule that changed in the shared file</h3>
+  <pre><code><span class="c">### When Starting Work</span>
+<span class="del">- 1. **Read Context**: Always start by reading AGENTS.md and README.md</span>
+<span class="add">+ 1. **Read Context**: Always start by reading README.md. Follow the repo's AGENTS.md too;
++    where it conflicts with these global instructions, the repo's rules win.</span></code></pre>
+  <p class="sec-intro">Everything else is your opencode-config working copy, unchanged apart from line endings (now LF). It never mentions OpenCode, so nothing else needed neutral wording.</p>
+
+  <!-- ===================== 2 ===================== -->
+  <div id="s2" class="sec-head"><span class="num">02</span><h2>Every file</h2></div>
+
+  <h3>In the dotfiles repo</h3>
+  <div class="table-wrap"><div class="table-scroll">
+    <table>
+      <thead><tr><th>File</th><th>What it holds</th><th>Ends up at</th></tr></thead>
+      <tbody>
+        <tr><td><code>agents/.config/agents/AGENTS.md</code></td><td>The shared rules for every agent. <strong>The only real copy.</strong> Stow package <code>agents</code>.</td><td><code>~/.config/agents/AGENTS.md</code>, <code>~/.codex/AGENTS.md</code>, <code>~/.config/opencode/AGENTS.md</code></td></tr>
+        <tr><td><code>claude/.claude/CLAUDE.md</code></td><td>The import line plus rules for Claude only. Stow package <code>claude</code>.</td><td><code>~/.claude/CLAUDE.md</code></td></tr>
+        <tr><td><code>opencode/.config/opencode/opencode.json</code></td><td>OpenCode settings used on Linux (<code>autoupdate: false</code>). This package no longer holds AGENTS.md.</td><td><code>~/.config/opencode/opencode.json</code> via <code>stow opencode</code>. Not used on Windows.</td></tr>
+        <tr><td><code>install.ps1</code></td><td>Windows installer. Creates the 4 links with <code>mklink</code>.</td><td>run from the clone</td></tr>
+        <tr><td><code>install.sh</code></td><td>Linux/macOS installer. Uses <code>stow</code> for 2 links and <code>ln -s</code> for 2.</td><td>run from the clone</td></tr>
+        <tr><td><code>.gitattributes</code></td><td>Keeps <code>*.sh</code> files at LF line endings, so bash can still run them after a Windows checkout.</td><td>repo only</td></tr>
+        <tr><td><code>README.md</code></td><td>What's managed, install steps per OS, how to add rules for one tool only.</td><td>repo only</td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <h3>The Claude entry point: <code>claude/.claude/CLAUDE.md</code></h3>
+  <pre><code><span class="k">@~/.config/agents/AGENTS.md</span>
+
+# Claude Code only
+
+## Repo AGENTS.md
+
+Claude Code loads a repo's AGENTS.md on its own only when the repo has no CLAUDE.md. At the start
+of each session, if the repo root has an AGENTS.md that isn't already in your context (for example,
+imported by the repo's CLAUDE.md), read it.</code></pre>
+
+  <h3>In your home folder (after the installer runs)</h3>
+  <div class="table-wrap"><div class="table-scroll">
+    <table>
+      <thead><tr><th>Home path</th><th>Links to</th><th>Windows makes it with</th><th>Linux / macOS makes it with</th><th>Read by</th></tr></thead>
+      <tbody>
+        <tr><td><code>~/.config/agents/AGENTS.md</code></td><td>shared file</td><td><code>mklink</code></td><td><code>stow agents</code> (relative link)</td><td><span class="dot claude"></span>Claude, through the import</td></tr>
+        <tr><td><code>~/.claude/CLAUDE.md</code></td><td><code>claude/.claude/CLAUDE.md</code></td><td><code>mklink</code></td><td><code>stow claude</code> (relative link)</td><td><span class="dot claude"></span>Claude</td></tr>
+        <tr><td><code>~/.codex/AGENTS.md</code><br><small>or <code>$CODEX_HOME/AGENTS.md</code></small></td><td>shared file</td><td><code>mklink</code></td><td><code>ln -s</code> (absolute link)</td><td><span class="dot codex"></span>Codex</td></tr>
+        <tr><td><code>~/.config/opencode/AGENTS.md</code></td><td>shared file</td><td><code>mklink</code></td><td><code>ln -s</code> (absolute link)</td><td><span class="dot opencode"></span>OpenCode</td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <div class="callout gold">
+    <strong>Two other repos share these folders on Windows.</strong> <code>~/.config/opencode</code> is the
+    <em>opencode-config</em> repo, and <code>~/.claude</code> is the <em>claude</em> repo. Both used to track the file that's
+    now a link, so their <code>git status</code> shows <code>T</code> (type changed). The proposal is to stop tracking those two files there;
+    see <a href="#s10">Status</a>.
+  </div>
+
+  <!-- ===================== 3 ===================== -->
+  <div id="s3" class="sec-head"><span class="num">03</span><h2>What each agent loads</h2></div>
+  <p class="sec-intro">Global files come first, then files from the repo you're working in. Checked against the current docs and tested on this PC with Claude Code 2.1.312 and Codex 0.166.0.</p>
+
+  <div class="table-wrap"><div class="table-scroll">
+    <table>
+      <thead><tr><th></th><th class="claude"><span class="dot claude"></span>Claude Code</th><th class="codex"><span class="dot codex"></span>Codex</th><th class="opencode"><span class="dot opencode"></span>OpenCode</th></tr></thead>
+      <tbody>
+        <tr><td class="rowhead">Global file it reads</td><td><code>~/.claude/CLAUDE.md</code></td><td><code>$CODEX_HOME/AGENTS.md</code> (default <code>~/.codex</code>). If <code>AGENTS.override.md</code> exists there, it reads that <em>instead</em>.</td><td><code>~/.config/opencode/AGENTS.md</code>. Falls back to <code>~/.claude/CLAUDE.md</code> only if that's missing.</td></tr>
+        <tr><td class="rowhead">How it reaches the shared file</td><td>Link to <code>claude/.claude/CLAUDE.md</code>, which <code>@</code>-imports <code>~/.config/agents/AGENTS.md</code>, which links to the shared file</td><td>Link straight to the shared file</td><td>Link straight to the shared file</td></tr>
+        <tr><td class="rowhead">Import syntax</td><td><code>@path</code>, up to 4 levels deep</td><td>None</td><td>None. <code>instructions</code> in <code>opencode.json</code> adds files instead.</td></tr>
+        <tr><td class="rowhead">Repo <code>AGENTS.md</code></td><td>Loads it on its own only if there's no <code>CLAUDE.md</code>, <code>.claude/CLAUDE.md</code> or <code>CLAUDE.local.md</code> in the folder or above. Otherwise the Claude-only rule tells it to read the file.</td><td>Always. Walks from the git root down to the current folder, one file per folder, and joins them in that order.</td><td>Always. Walks up from the current folder; the first <code>AGENTS.md</code> found wins.</td></tr>
+        <tr><td class="rowhead">Repo <code>CLAUDE.md</code></td><td>Yes: the current folder and above at startup, subfolders when it opens files there</td><td>Ignored</td><td>Only if the repo has no <code>AGENTS.md</code></td></tr>
+        <tr><td class="rowhead">Repo rules vs global rules</td><td>Repo wins (shared rule + Claude rule)</td><td>Repo wins (it comes later in the prompt, plus the shared rule)</td><td>Repo wins (shared rule)</td></tr>
+        <tr><td class="rowhead">Rules for this tool only</td><td>Below the import in <code>claude/.claude/CLAUDE.md</code></td><td><code>developer_instructions</code> in <code>~/.codex/config.toml</code> (local to each machine)</td><td><code>instructions</code> in <code>opencode.json</code></td></tr>
+        <tr><td class="rowhead">Limits</td><td>None that matter here</td><td>32 KiB total across all files (<code>project_doc_max_bytes</code>). The shared file is about 6.7 KB.</td><td>None that matter here</td></tr>
+        <tr><td class="rowhead">Picks up edits</td><td>Next session</td><td>Next run</td><td>Next session</td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <!-- ===================== 4 ===================== -->
+  <div id="s4" class="sec-head"><span class="num">04</span><h2>A repo's own AGENTS.md</h2></div>
+  <p class="sec-intro">
+    Codex and OpenCode always load a repo's <code>AGENTS.md</code>. Claude Code is the special case: since v2.1.277 it reads
+    <code>AGENTS.md</code> itself, but only in repos without a <code>CLAUDE.md</code>. The rule in your global <code>CLAUDE.md</code> covers the rest. No hooks are involved.
+  </p>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">How Claude Code ends up with the repo's AGENTS.md</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button type="button" data-action="zoom-fit" title="Fit">&#8634;</button>
+        <button type="button" data-action="zoom-one" title="1:1">1:1</button>
+        <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+        <span class="zoom-label">Loading...</span>
+      </div>
+      <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+flowchart TD
+  %%DEFS%%
+  S(["Claude session starts in a repo"]) --> Q1{"CLAUDE.md, .claude/CLAUDE.md or<br/>CLAUDE.local.md here or above?"}
+  Q1 -->|no| N["Claude Code loads AGENTS.md itself<br/>default setting, v2.1.277+"]:::ok
+  Q1 -->|yes| Q2{"Does that CLAUDE.md<br/>import @AGENTS.md?"}
+  Q2 -->|yes| I["AGENTS.md arrives<br/>through the import"]:::ok
+  Q2 -->|no| R["Global CLAUDE.md rule:<br/>read the repo-root AGENTS.md<br/>with the Read tool"]:::claude
+  N --> W["Repo rules win over global rules"]:::shared
+  I --> W
+  R --> W
+    </script>
+  </section>
+
+  <div class="table-wrap"><div class="table-scroll">
+    <table>
+      <caption>What each agent reads, by what the repo contains</caption>
+      <thead><tr><th>The repo has</th><th class="claude">Claude Code</th><th class="codex">Codex</th><th class="opencode">OpenCode</th><th>Tested here</th></tr></thead>
+      <tbody>
+        <tr><td class="rowhead">Only <code>AGENTS.md</code><br><small>e.g. learning-cards</small></td><td>Loads it itself</td><td>Loads it</td><td>Loads it</td><td><span class="chip ok">Claude + Codex</span></td></tr>
+        <tr><td class="rowhead"><code>CLAUDE.md</code> containing <code>@AGENTS.md</code><br><small>e.g. partsterr</small></td><td>Through the import</td><td>Loads <code>AGENTS.md</code></td><td>Loads <code>AGENTS.md</code></td><td><span class="chip info">by the docs</span></td></tr>
+        <tr><td class="rowhead"><code>CLAUDE.md</code> without the import, plus <code>AGENTS.md</code></td><td>Loads <code>CLAUDE.md</code>; reads <code>AGENTS.md</code> because of the rule</td><td>Loads <code>AGENTS.md</code>; ignores <code>CLAUDE.md</code></td><td>Loads <code>AGENTS.md</code>; ignores <code>CLAUDE.md</code></td><td><span class="chip ok">Claude + Codex</span></td></tr>
+        <tr><td class="rowhead">Only <code>CLAUDE.md</code></td><td>Loads it</td><td>Nothing from the repo</td><td>Loads it (fallback)</td><td><span class="chip info">by the docs</span></td></tr>
+        <tr><td class="rowhead">Neither</td><td>Global rules only</td><td>Global rules only</td><td>Global rules only</td><td><span class="chip ok">Claude + Codex</span></td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <div class="callout">
+    <strong>Optional: no rule needed.</strong> In Claude Code, <code>/config</code> → <em>Project instructions</em> →
+    <code>claude-md-and-agents-md</code> makes Claude load both files on its own and skip any <code>AGENTS.md</code> already imported.
+    It's saved in <code>~/.claude/settings.json</code>, so the installer leaves that choice to you.
+  </div>
+
+  <!-- ===================== 5 ===================== -->
+  <div id="s5" class="sec-head"><span class="num">05</span><h2>How it works on each machine</h2></div>
+  <p class="sec-intro">On every machine the end result is the same 4 links. Only how they're made differs.</p>
+
+  <div class="grid3">
+    <div class="card blue">
+      <h4>Windows <span class="chip ok">installed</span></h4>
+      <div class="meta">this PC · PowerShell 5.1</div>
+      <dl>
+        <dt>Clone</dt><dd><code>F:\Repositories\dotfiles</code></dd>
+        <dt>Installer</dt><dd><code>.\install.ps1 [-DryRun]</code></dd>
+        <dt>Links</dt><dd>All 4 with <code>cmd /c mklink</code>, absolute targets</dd>
+        <dt>Needs</dt><dd>Developer Mode (on). PowerShell 5.1's <code>New-Item -ItemType SymbolicLink</code> still asks for admin; <code>mklink</code> doesn't.</dd>
+        <dt>OpenCode settings</dt><dd><code>opencode.json</code> comes from opencode-config, not dotfiles</dd>
+        <dt>Backups</dt><dd><code>CLAUDE.md.backup.20261030-195316</code>, <code>opencode\AGENTS.md.backup.20261030-195316</code></dd>
+      </dl>
+    </div>
+    <div class="card blue">
+      <h4>Linux <span class="chip wait">not run yet</span></h4>
+      <div class="meta">Enterprise · bash + GNU Stow</div>
+      <dl>
+        <dt>Clone</dt><dd><code>~/dotfiles</code></dd>
+        <dt>Installer</dt><dd><code>./install.sh [--dry-run]</code></dd>
+        <dt>Links</dt><dd><code>stow --no-folding agents claude</code> makes relative links; <code>ln -s</code> makes the Codex and OpenCode links</dd>
+        <dt>Needs</dt><dd><code>stow</code> (<code>pacman -S stow</code> or <code>apt install stow</code>)</dd>
+        <dt>Migration</dt><dd>The old <code>stow opencode</code> link for AGENTS.md breaks once you pull this change; the installer replaces it</dd>
+        <dt>Tested</dt><dd>Passed in an Ubuntu 24.04 container with stow 2.3.1</dd>
+      </dl>
+    </div>
+    <div class="card blue">
+      <h4>macOS <span class="chip todo">untested</span></h4>
+      <div class="meta">bash 3.2 + Homebrew Stow</div>
+      <dl>
+        <dt>Clone</dt><dd><code>~/dotfiles</code></dd>
+        <dt>Installer</dt><dd><code>./install.sh [--dry-run]</code>, the same script as Linux</dd>
+        <dt>Links</dt><dd>Same as Linux</dd>
+        <dt>Needs</dt><dd><code>brew install stow</code></dd>
+        <dt>Portability</dt><dd>Checks links with <code>[ a -ef b ]</code>, so it doesn't need <code>readlink -f</code>, which older macOS lacks</dd>
+        <dt>Tested</dt><dd>Not on a real Mac yet</dd>
+      </dl>
+    </div>
+  </div>
+
+  <h3>Why there are no symlinks committed to Git</h3>
+  <div class="callout">
+    Stow links each file in a package to exactly one place. Getting one file to show up at three paths with Stow alone means
+    committing symlinks into the repo, and Git for Windows usually checks those out as small text files containing a path
+    (<code>core.symlinks=false</code>). So the shared file is stored once in <code>agents/</code>. Stow handles the two packages that
+    fit its layout (<code>agents</code>, <code>claude</code>), and the installers link the Codex and OpenCode paths straight to the shared file.
+    <br><br>
+    <strong>Why <code>--no-folding</code>:</strong> without it, Stow could turn the whole <code>~/.config/agents</code> folder into a link into the repo,
+    and anything a tool wrote there would land in your repo.
+  </div>
+
+  <h3>Verify on Enterprise</h3>
+  <pre><code>cd ~/dotfiles                                    <span class="c"># your clone there</span>
+git switch master                                <span class="c"># make sure you're on master</span>
+git pull --ff-only                               <span class="c"># --ff-only = only fast-forward; stops instead of making a merge commit</span>
+ls -la ~/.config | grep opencode                 <span class="c"># -l = long list, -a = include hidden; "opencode -> ..." = folded stow link (installer will stop)</span>
+command -v stow shellcheck                       <span class="c"># prints each tool's path; nothing printed = not installed</span>
+shellcheck install.sh                            <span class="c"># lint the script; no output = no findings</span>
+./install.sh --dry-run                           <span class="c"># list the planned changes, change nothing</span>
+./install.sh                                     <span class="c"># make the changes (backs up real files first)</span>
+./install.sh                                     <span class="c"># second run: expect "0 change(s) made"</span>
+readlink -f ~/.config/agents/AGENTS.md ~/.codex/AGENTS.md ~/.config/opencode/AGENTS.md   <span class="c"># -f = follow links; all 3 print the same path</span>
+cd "$(mktemp -d)"                                <span class="c"># mktemp -d = make an empty temp folder; $(...) = use its output</span>
+echo "Without using tools, which letters label Next Action Options?" | claude -p --tools ""   <span class="c"># | = pipe; expect j, k, l, o, p</span>
+codex exec --skip-git-repo-check --ephemeral -s read-only "Without running commands, which letters label Next Action Options?"   <span class="c"># expect j, k, l, o, p</span></code></pre>
+
+  <!-- ===================== 6 ===================== -->
+  <div id="s6" class="sec-head"><span class="num">06</span><h2>What the installers do</h2></div>
+  <p class="sec-intro">Both installers follow the same steps for each of the 4 paths. A dry run prints each step as <code>would: …</code> and changes nothing. A real run prints each change as it makes it, ending with <code>N change(s) made</code>.</p>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">Steps for each home-folder path</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button type="button" data-action="zoom-fit" title="Fit">&#8634;</button>
+        <button type="button" data-action="zoom-one" title="1:1">1:1</button>
+        <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+        <span class="zoom-label">Loading...</span>
+      </div>
+      <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+flowchart TD
+  %%DEFS%%
+  A(["For each of the 4 home-folder paths"]) --> B{"Already leads to<br/>the right repo file?"}
+  B -->|yes| OK["print ok<br/>change nothing"]:::ok
+  B -->|no| C{"What is there now?"}
+  C -->|"link elsewhere<br/>or broken link"| R["delete the link"]
+  C -->|real file| BK["rename it to<br/>name.backup.yyyyMMdd-HHmmss"]
+  C -->|nothing| N["nothing to clear"]
+  C -->|folder| E["stop with an error"]:::stop
+  R --> D["create the parent folder if missing"]
+  BK --> D
+  N --> D
+  D --> L["create the link<br/>Windows: mklink<br/>Linux/macOS: stow or ln -s"]:::shared
+    </script>
+  </section>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>Guarantees</h4>
+      <ul class="plain">
+        <li>Safe to rerun: the second run makes 0 changes.</li>
+        <li>A real file is always renamed with a timestamp, never deleted.</li>
+        <li>A correct link is left alone.</li>
+        <li>Never touches <code>~/.claude/settings.json</code> or <code>~/.codex/config.toml</code>.</li>
+        <li>Respects <code>CODEX_HOME</code> and <code>XDG_CONFIG_HOME</code> if they're set.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Extra checks in <code>install.sh</code></h4>
+      <ul class="plain">
+        <li>Stops if a parent folder leads into the repo (a folded stow link), so it never writes into your clone.</li>
+        <li>A dry run works without stow and only warns. A real run requires stow.</li>
+        <li><code>shellcheck</code>: no findings.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===================== 7 ===================== -->
+  <div id="s7" class="sec-head"><span class="num">07</span><h2>The CLI proxy on Enterprise</h2></div>
+  <p class="sec-intro">
+    The files are read by the CLI on the machine where it runs, before anything goes over the network. Your proxy on
+    Enterprise only receives prompts that already contain the instructions. So Windows sessions use the Windows links,
+    and sessions started on Enterprise use Enterprise's links.
+  </p>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">Where the instructions are read</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button type="button" data-action="zoom-fit" title="Fit">&#8634;</button>
+        <button type="button" data-action="zoom-one" title="1:1">1:1</button>
+        <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+        <span class="zoom-label">Loading...</span>
+      </div>
+      <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+sequenceDiagram
+  participant F as Instruction files<br/>on the same machine
+  participant C as claude or codex CLI
+  participant P as CLI proxy<br/>on Enterprise
+  participant A as Anthropic or OpenAI
+  C->>F: read CLAUDE.md, its imports, AGENTS.md
+  Note over C: builds the prompt with<br/>the instructions inside
+  C->>P: API request
+  P->>A: forwards it (no file access)
+  A-->>P: response
+  P-->>C: response
+    </script>
+  </section>
+
+  <!-- ===================== 8 ===================== -->
+  <div id="s8" class="sec-head"><span class="num">08</span><h2>Adding rules</h2></div>
+  <div class="grid2">
+    <div class="card blue"><h4>Every agent</h4><p>Edit <code>agents/.config/agents/AGENTS.md</code> and keep the wording tool-neutral. Commit and push, then pull on the other machines. The links pick it up with no reinstall.</p></div>
+    <div class="card claude"><h4><span class="dot claude"></span>Claude Code only</h4><p>Add rules to <code>claude/.claude/CLAUDE.md</code> below the import line. They're in the repo, so they reach every machine.</p></div>
+    <div class="card codex"><h4><span class="dot codex"></span>Codex only</h4><p>Codex reads exactly one global file and has no imports. <code>AGENTS.override.md</code> <em>replaces</em> the shared file rather than adding to it. Instead, use <code>developer_instructions</code> in <code>~/.codex/config.toml</code>, which adds to it. That file is local to each machine and not managed by dotfiles.</p></div>
+    <div class="card opencode"><h4><span class="dot opencode"></span>OpenCode only</h4><p>List extra files under <code>instructions</code> in <code>opencode.json</code>. OpenCode adds them to <code>AGENTS.md</code>. It doesn't follow <code>@</code> imports.</p></div>
+  </div>
+
+  <!-- ===================== 9 ===================== -->
+  <div id="s9" class="sec-head"><span class="num">09</span><h2>Verified on this PC</h2></div>
+  <div class="table-wrap"><div class="table-scroll">
+    <table>
+      <thead><tr><th>Test</th><th class="claude">Claude Code (claude -p)</th><th class="codex">Codex (codex exec)</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td class="rowhead">Installer: dry run, real run, rerun</td><td colspan="2">7 planned → 7 made → 0 made (all four printed <code>ok</code>)</td><td><span class="chip ok">pass</span></td></tr>
+        <tr><td class="rowhead">Links resolve</td><td colspan="2">3 AGENTS.md paths match the shared file byte for byte; CLAUDE.md links to <code>claude/.claude/CLAUDE.md</code></td><td><span class="chip ok">pass</span></td></tr>
+        <tr><td class="rowhead">Claude's loaded files (<code>/context</code>)</td><td><code>~\.claude\CLAUDE.md</code> (134 tokens) + <code>~\.config\agents\AGENTS.md</code> (2.4k)</td><td>—</td><td><span class="chip ok">pass</span></td></tr>
+        <tr><td class="rowhead">Empty folder, no tools allowed</td><td><code>j, k, l, o, p</code> + the new "Read Context" text, word for word</td><td>same</td><td><span class="chip ok">pass</span></td></tr>
+        <tr><td class="rowhead">learning-cards (only AGENTS.md)</td><td><code>cards/&lt;topic&gt;/&lt;id&gt;.md</code>; listed as a Project memory file</td><td><code>cards/&lt;topic&gt;/&lt;id&gt;.md</code></td><td><span class="chip ok">pass</span></td></tr>
+        <tr><td class="rowhead">Temp repo: CLAUDE.md without the import, plus an AGENTS.md that conflicts with the global rules</td><td>Not loaded at startup, but read because of the rule: <code>MANGO-3</code>, <code>a, b, c</code> (repo won), <code>make check</code></td><td><code>MANGO-3</code>, <code>a, b, c</code>, <code>NONE</code> (doesn't read CLAUDE.md)</td><td><span class="chip ok">pass</span></td></tr>
+        <tr><td class="rowhead">install.sh</td><td colspan="2">Git Bash dry runs; shellcheck clean; Ubuntu container: 7 → 0 changes, replaced a broken stow link, <code>stow -R opencode</code> left it alone</td><td><span class="chip ok">pass</span></td></tr>
+        <tr><td class="rowhead">OpenCode in a live session</td><td colspan="2">Only the link was checked</td><td><span class="chip wait">not run</span></td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <!-- ===================== 10 ===================== -->
+  <div id="s10" class="sec-head"><span class="num">10</span><h2>Status and next steps</h2></div>
+  <div class="grid3">
+    <div class="card">
+      <h4>dotfiles <span class="chip ok">merged</span></h4>
+      <div class="meta">master · PR #1</div>
+      <ul class="plain">
+        <li>4 commits: <code>agents</code> package, <code>claude</code> package, installers, README</li>
+        <li>This page lives at <code>docs/agent-instructions.html</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>opencode-config <span class="chip wait">uncommitted</span></h4>
+      <div class="meta">branch chore/learning-card-capture</div>
+      <ul class="plain">
+        <li><code>T</code> AGENTS.md (now a link)</li>
+        <li><code>??</code> AGENTS.md.backup.20261030-195316</li>
+        <li>Your edits to README.md, opencode.json, gk-hooks.js and service.json are untouched</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>~/.claude repo <span class="chip wait">uncommitted</span></h4>
+      <div class="meta">patrickpcodes/claude · master</div>
+      <ul class="plain">
+        <li><code>T</code> CLAUDE.md (now a link)</li>
+        <li>The backup is already covered by its <code>*.backup.*</code> ignore rule</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Proposed next steps (each needs your OK)</h3>
+  <div class="table-wrap"><div class="table-scroll">
+    <table>
+      <thead><tr><th>Step</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr><td class="rowhead">Install on Enterprise</td><td>Run the commands in <a href="#s5">section 5</a></td></tr>
+        <tr><td class="rowhead">opencode-config: stop tracking AGENTS.md</td><td><code>git rm --cached AGENTS.md</code>, add <code>AGENTS.md</code> and <code>*.backup.*</code> to <code>.gitignore</code>, fix the README line that calls it "canonical". Do this on its own branch.</td></tr>
+        <tr><td class="rowhead">claude repo: stop tracking CLAUDE.md</td><td>Same steps, and update the README's "External dependency" section</td></tr>
+        <tr><td class="rowhead">Choose a home for opencode.json</td><td>dotfiles has <code>{"autoupdate": false}</code>; opencode-config has the full file used on Windows</td></tr>
+        <tr><td class="rowhead">Clean up</td><td>Delete the two <code>.backup.20261030-195316</code> files once you're happy. The stale <code>Read(~/.config/opencode/AGENTS.md)</code> entry in settings.json is harmless.</td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <p class="subtitle" style="margin-top:28px">Sources: code.claude.com/docs/en/memory · learn.chatgpt.com/docs/agent-configuration/agents-md · learn.chatgpt.com/docs/config-file/config-reference · opencode.ai/docs/rules</p>
+
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs';
+
+  const config = { fitPadding: 24, minHeight: 300, maxHeightPx: 900, maxHeightVh: 0.8, maxInitialZoom: 1.6, minZoom: 0.08, maxZoom: 6, zoomStep: 0.14, readabilityFloor: 0.58 };
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  const classDefs = isDark ? `
+  classDef shared fill:#16264a,stroke:#82a8ff,color:#e3e9f5,stroke-width:2px
+  classDef claude fill:#3a1f12,stroke:#fb923c,color:#fde4d2
+  classDef codex fill:#0f2f2c,stroke:#2dd4bf,color:#ccfbf1
+  classDef opencode fill:#33270d,stroke:#f0b84a,color:#fdf0d2
+  classDef link fill:#111c33,stroke:#93a3c2,color:#e3e9f5,stroke-dasharray:4 3
+  classDef ok fill:#10291c,stroke:#5fcf8f,color:#d6f5e3
+  classDef stop fill:#3a1414,stroke:#ff7b7b,color:#ffe0e0` : `
+  classDef shared fill:#e3ebfb,stroke:#1f4fb8,color:#13233d,stroke-width:2px
+  classDef claude fill:#fdeee6,stroke:#c2410c,color:#13233d
+  classDef codex fill:#e2f4f2,stroke:#0f766e,color:#13233d
+  classDef opencode fill:#fbf1de,stroke:#a86a0c,color:#13233d
+  classDef link fill:#ffffff,stroke:#56657f,color:#13233d,stroke-dasharray:4 3
+  classDef ok fill:#e4f4ea,stroke:#23804f,color:#13233d
+  classDef stop fill:#fbe6e6,stroke:#c03030,color:#13233d`;
+
+  let activeDrag = null;
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  mermaid.registerLayoutLoaders(elkLayouts);
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    layout: 'elk',
+    themeVariables: {
+      fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
+      fontSize: '15px',
+      primaryColor: isDark ? '#172442' : '#eaeef7',
+      primaryBorderColor: isDark ? '#82a8ff' : '#1f4fb8',
+      primaryTextColor: isDark ? '#e3e9f5' : '#13233d',
+      secondaryColor: isDark ? '#111c33' : '#f3f5fa',
+      secondaryBorderColor: isDark ? '#93a3c2' : '#56657f',
+      secondaryTextColor: isDark ? '#e3e9f5' : '#13233d',
+      tertiaryColor: isDark ? '#0f1830' : '#f7f9fd',
+      tertiaryBorderColor: isDark ? '#3a4a6b' : '#c5cfe2',
+      tertiaryTextColor: isDark ? '#e3e9f5' : '#13233d',
+      lineColor: isDark ? '#93a3c2' : '#56657f',
+      clusterBkg: isDark ? '#0f1830' : '#f7f9fd',
+      clusterBorder: isDark ? '#3a4a6b' : '#c5cfe2',
+      actorBkg: isDark ? '#172442' : '#eaeef7',
+      actorBorder: isDark ? '#82a8ff' : '#1f4fb8',
+      actorTextColor: isDark ? '#e3e9f5' : '#13233d',
+      signalColor: isDark ? '#e3e9f5' : '#13233d',
+      signalTextColor: isDark ? '#e3e9f5' : '#13233d',
+      noteBkgColor: isDark ? '#33270d' : '#fbf1de',
+      noteTextColor: isDark ? '#fdf0d2' : '#13233d',
+      noteBorderColor: isDark ? '#f0b84a' : '#a86a0c'
+    }
+  });
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0, sx = 0, sy = 0, spx = 0, spy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight, rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+      panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+    }
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW * zoom) + 'px';
+      svg.style.height = (svgH * zoom) + 'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom * 100) + '% \u2014 ' + fitMode;
+    }
+    function canPan() {
+      return svgW * zoom + config.fitPadding * 2 > viewport.clientWidth || svgH * zoom + config.fitPadding * 2 > viewport.clientHeight;
+    }
+    function computeSmartFit() {
+      const aW = Math.max(80, viewport.clientWidth - config.fitPadding * 2);
+      const aH = Math.max(80, viewport.clientHeight - config.fitPadding * 2);
+      const contain = Math.min(aW / svgW, aH / svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        if (svgH / svgW >= viewport.clientHeight / Math.max(viewport.clientWidth, 1)) { z = aW / svgW; mode = 'width-priority'; }
+        else { z = aH / svgH; mode = 'height-priority'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit();
+      zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+    function setOneToOne() {
+      zoom = 1; fitMode = '1:1';
+      panX = (viewport.clientWidth - svgW) / 2;
+      panY = (viewport.clientHeight - svgH) / 2;
+      applyTransform();
+    }
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+      const ratio = next / zoom;
+      panX = cx - ratio * (cx - panX);
+      panY = cy - ratio * (cy - panY);
+      zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+    function readSvgNaturalSize(svg) {
+      let w = svg.viewBox?.baseVal?.width || parseFloat(svg.getAttribute('width')) || 0;
+      let h = svg.viewBox?.baseVal?.height || parseFloat(svg.getAttribute('height')) || 0;
+      if (!w) { const b = svg.getBBox(); w = b.width || 1000; h = b.height || 700; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+    function setAdaptiveHeight() {
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, Math.floor(innerHeight * config.maxHeightVh)));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+    }
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg');
+      if (!svg) return;
+      const clone = svg.cloneNode(true);
+      clone.style.width = ''; clone.style.height = '';
+      const bg = isDark ? '#0b1324' : '#f3f5fa';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Diagram</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${bg};padding:40px;box-sizing:border-box}svg{max-width:100%;max-height:90vh;height:auto}</style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    }
+    async function render() {
+      try {
+        const code = source.textContent.trim().replace('%%DEFS%%', classDefs);
+        const id = 'diagram-' + Math.random().toString(36).slice(2, 9);
+        const { svg } = await mermaid.render(id, code);
+        const parsedSvg = new DOMParser().parseFromString(svg, 'text/html').body.querySelector('svg');
+        if (!parsedSvg) { label.textContent = 'Error: No SVG'; return; }
+        canvas.replaceChildren(document.adoptNode(parsedSvg));
+        const svgNode = canvas.querySelector('svg');
+        const size = readSvgNaturalSize(svgNode);
+        svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width'); svgNode.removeAttribute('height');
+        svgNode.style.maxWidth = 'none'; svgNode.style.display = 'block';
+        setAdaptiveHeight();
+        fitDiagram();
+      } catch (err) {
+        console.error('Mermaid render failed:', err);
+        label.textContent = 'Error: ' + (err.message || 'Render failed');
+      }
+    }
+
+    const actions = {
+      'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-fit': fitDiagram,
+      'zoom-one': setOneToOne,
+      'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([a, h]) => wrap.querySelector(`[data-action="${a}"]`)?.addEventListener('click', h));
+    viewport.addEventListener('dblclick', fitDiagram);
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const r = viewport.getBoundingClientRect();
+        zoomAround(e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep), e.clientX - r.left, e.clientY - r.top);
+      }
+    }, { passive: false });
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning');
+      sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+      e.preventDefault();
+      activeDrag = {
+        onMove: (ev) => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+        onEnd: () => wrap.classList.remove('is-panning')
+      };
+    });
+    new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+    render();
+  }
+
+  document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+<script>
+(function () {
+  const toc = document.getElementById('toc');
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+  links.forEach(link => {
+    const el = document.getElementById(link.getAttribute('href').slice(1));
+    if (el) sections.push({ el, link });
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      links.forEach(l => l.classList.remove('active'));
+      const match = sections.find(s => s.el === entry.target);
+      if (match) {
+        match.link.classList.add('active');
+        if (window.innerWidth <= 1000) match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => observer.observe(s.el));
+  document.querySelectorAll('a[href^="#"]').forEach(link => {
+    link.addEventListener('click', e => {
+      const el = document.getElementById(link.getAttribute('href').slice(1));
+      if (!el) return;
+      e.preventDefault();
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      history.replaceState(null, '', '#' + el.id);
+    });
+  });
+})();
+</script>
+</body>
+</html>
