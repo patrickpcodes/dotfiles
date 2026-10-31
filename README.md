@@ -30,13 +30,13 @@ One `AGENTS.md` holds my personal instructions for every coding agent. Claude Co
 
 A repo's own `AGENTS.md` is loaded by Codex and OpenCode. Claude Code loads it only when the repo has no `CLAUDE.md`, so `CLAUDE.md` tells Claude to read it in the other cases.
 
-### Why the installers create two links themselves
+### Why the installers create the Codex and OpenCode links themselves
 
 Codex and OpenCode need the same file at two more paths. Stow links each package file to one place, so sharing a file across packages would mean committing symlinks, which Git on Windows often checks out as plain text files. Instead the shared file lives once in the `agents` package, Stow links the `agents` and `claude` packages, and the installers link the Codex and OpenCode paths straight to the shared file.
 
 ### Install
 
-Both installers can be rerun safely. They leave correct links alone, replace links that point elsewhere, move a real file to `<file>.backup.<timestamp>` before replacing it, and print every change. They don't touch `~/.claude/settings.json` or `~/.codex/config.toml`.
+Both installers can be rerun safely. They leave correct links alone, replace links that point elsewhere, move a real file to `<file>.backup.<timestamp>` before replacing it, stop if a real folder is in the way, and print every change. They don't touch `~/.claude/settings.json` or `~/.codex/config.toml`.
 
 Windows (needs Developer Mode or an admin shell to create symlinks):
 
@@ -52,7 +52,7 @@ Linux and macOS:
 sudo pacman -S stow           # Arch/Omarchy; Debian/Ubuntu: sudo apt install stow; macOS: brew install stow
 cd ~/dotfiles
 ./install.sh --dry-run        # --dry-run (or -n) = list the changes without making them
-./install.sh                  # stow agents + claude, then link the Codex and OpenCode paths
+./install.sh                  # stow agents + claude, then link the Codex, OpenCode and skill paths
 ```
 
 To check, start a new session and ask which letters label Next Action Options (`j, k, l, o, p`). In Claude Code, `/context` lists `~/.claude/CLAUDE.md` and `~/.config/agents/AGENTS.md` under Memory files.
@@ -66,6 +66,107 @@ To check, start a new session and ask which letters label Next Action Options (`
 
 Changes apply to new sessions.
 
+## Skills
+
+Each of my own skills lives once in `agents/.agents/skills/`. Claude Code doesn't read `~/.agents/skills`, so the installers link every skill folder there into two places:
+
+| Home folder path | Links to | Read by |
+| --- | --- | --- |
+| `~/.agents/skills/<name>` | `agents/.agents/skills/<name>` | Codex, OpenCode |
+| `~/.claude/skills/<name>` | `agents/.agents/skills/<name>` | Claude Code, OpenCode |
+
+Each skill folder gets its own link, not the whole skills folder, because both folders also hold skills installed from elsewhere. `install.sh` tells stow to skip `.agents`, because `--no-folding` would link each skill file separately, and a `~/.agents` link to somewhere else would make stow stop.
+
+OpenCode finds each skill in both folders and logs a "duplicate skill name" warning, but loads one copy, and both are the same files. Setting `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1` removes the warning, but OpenCode then also stops loading the skills in `~/.claude/skills` that aren't in this repo.
+
+Keep only skills I write or maintain here. A skill installed by another tool, such as a plugin or `npx skills`, gets updated by that tool, so leave it where that tool put it.
+
+### Writing a skill that works in every tool
+
+All three tools read the same `SKILL.md` format. To keep one copy working in all of them:
+
+- **Folder name and `name` match.** Use lowercase letters, digits and single hyphens, up to 64 characters, for example `browser-testing`. OpenCode requires the match.
+- **`description` says when to use the skill**, in 1 to 1024 characters (OpenCode's limit). Every tool picks skills by matching the request against it.
+- **Extra frontmatter is fine.** Claude Code uses fields like `argument-hint`; Codex and OpenCode ignore fields they don't know.
+- **Name tools neutrally.** Describe the action and put a tool's own name in brackets, for example "ask the user (with AskUserQuestion in Claude Code)".
+- **Refer to bundled files by `~/.agents/skills/<name>/...`** or as "this skill's folder". Avoid `~/.claude/skills/...` and `${CLAUDE_SKILL_DIR}`, which are Claude-specific.
+- **Have one `SKILL.md` per skill.** Another `SKILL.md` deeper in the folder, for example an example file in `assets/`, can load as a second skill in OpenCode.
+- **Don't write output into the skill folder.** It is this repo's working tree, so anything a script saves there shows up in `git status`. Write to the user's project instead.
+
+### Adding a skill
+
+Replace `my-skill` with the skill's name, and the source path with wherever the skill is now (`~/.claude/skills`, `~/.agents/skills` or `~/.codex/skills`).
+
+1. Copy the folder into `agents/.agents/skills/` on a new branch.
+2. Check it against the list above and fix what doesn't fit.
+3. Compare the copy with the original, then delete the original. The installer stops if a real folder is in the way, and a backup left there would load as a second copy.
+4. Run the installer to link the skill for every tool.
+5. Start a new session in each tool and check that the skill is there.
+6. Commit the folder.
+
+Windows (PowerShell):
+
+```powershell
+cd F:\Repositories\dotfiles                          # the repo
+git switch -c chore/my-skill-skill                   # -c = create the branch and switch to it
+Copy-Item -Recurse "$HOME\.claude\skills\my-skill" agents\.agents\skills\   # -Recurse = copy the folder and everything in it
+
+# Compare the folders: no output and exit code 0 mean identical. -c core.safecrlf=false hides line-ending warnings.
+git -c core.safecrlf=false diff --no-index --stat "$HOME\.claude\skills\my-skill" agents\.agents\skills\my-skill
+
+# Delete the original: /s = with its contents, /q = don't ask. Use rmdir, not Remove-Item:
+# PowerShell 5.1's Remove-Item can follow a folder link and delete the files it points to.
+cmd /c rmdir /s /q "$HOME\.claude\skills\my-skill"
+
+.\install.ps1 -DryRun                                # list the links it would make
+.\install.ps1                                        # make them
+```
+
+Linux and macOS:
+
+```bash
+cd ~/dotfiles                                        # the repo
+git switch -c chore/my-skill-skill                   # -c = create the branch and switch to it
+cp -r ~/.claude/skills/my-skill agents/.agents/skills/        # -r = copy the folder and everything in it
+diff -r ~/.claude/skills/my-skill agents/.agents/skills/my-skill   # -r = compare whole folders; no output means identical
+rm -r ~/.claude/skills/my-skill                      # delete the original; -r = with its contents
+./install.sh --dry-run                               # list the links it would make
+./install.sh                                         # make them
+```
+
+Check each tool (on Windows, run these in Git Bash):
+
+```bash
+codex debug prompt-input "hi" | grep -o 'my-skill: .\{0,60\}'   # Codex: render the prompt it would send and find the skill
+opencode debug skill | grep '"location".*my-skill'              # OpenCode: show where it loaded the skill from
+```
+
+In Claude Code, type `/my-skill`. Then commit:
+
+```bash
+git add agents/.agents/skills/my-skill               # stage the skill folder
+git commit -m "Add my-skill skill"                   # -m = commit message
+```
+
+### Changing, renaming or removing a skill
+
+- **Change:** edit the files in `agents/.agents/skills/<name>/`. Every tool reads them through the links, so new sessions get the edits without rerunning the installer.
+- **Rename:** rename the folder and `name` together, delete the old links as below, and rerun the installer.
+- **Remove:** delete the folder from the repo, then delete its two links. The installers create links but don't remove old ones.
+
+```powershell
+cmd /c rmdir "$HOME\.agents\skills\my-skill"         # Windows: rmdir without /s removes only the link
+cmd /c rmdir "$HOME\.claude\skills\my-skill"
+```
+
+```bash
+rm ~/.agents/skills/my-skill ~/.claude/skills/my-skill   # Linux/macOS: rm without -r removes only the links
+```
+
+### browser-testing
+
+Runs smoke tests in T3's preview browser, so it works only in threads where T3 provides its preview tools. On first use in a repo it writes a repo-specific testing doc from `template.md`; the `{{...}}` placeholders there are filled in at that point. Its report scripts in `assets/smoke/` need Python with Pillow (`pip install pillow`). `template.md` refers to `~/.agents/skills/browser-testing/assets/smoke/`, so keep that link.
+
 ## Repository structure
 
 Each top-level folder is a `stow` package.
@@ -77,6 +178,12 @@ Example:
   install.sh
   install.ps1
   agents/
+    .agents/
+      skills/
+        browser-testing/
+          SKILL.md
+          template.md
+          assets/smoke/
     .config/
       agents/
         AGENTS.md

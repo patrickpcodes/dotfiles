@@ -1,5 +1,5 @@
 <#
-Links the shared agent instructions into Claude Code, Codex and OpenCode.
+Links the shared agent instructions and skills into Claude Code, Codex and OpenCode.
 Usage: .\install.ps1 [-DryRun]
 Needs Developer Mode (or an admin shell) to create symlinks.
 #>
@@ -17,6 +17,14 @@ $links = [ordered]@{
     (Join-Path $codexHome 'AGENTS.md')           = $shared
     (Join-Path $configHome 'opencode\AGENTS.md') = $shared
 }
+# Codex and OpenCode read ~/.agents/skills; Claude Code reads only ~/.claude/skills.
+$skills = Join-Path $PSScriptRoot 'agents\.agents\skills'
+if (Test-Path -LiteralPath $skills) {
+    foreach ($skill in Get-ChildItem -LiteralPath $skills -Directory) {
+        $links[(Join-Path $HOME ".agents\skills\$($skill.Name)")] = $skill.FullName
+        $links[(Join-Path $HOME ".claude\skills\$($skill.Name)")] = $skill.FullName
+    }
+}
 
 $changes = 0
 function Invoke-Change([string]$Description, [scriptblock]$Action) {
@@ -32,7 +40,8 @@ function Invoke-Change([string]$Description, [scriptblock]$Action) {
 foreach ($link in $links.GetEnumerator()) {
     $path = $link.Key
     $source = [IO.Path]::GetFullPath($link.Value)
-    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing source file: $source" }
+    if (-not (Test-Path -LiteralPath $source)) { throw "Missing source: $source" }
+    $flags = @(if (Test-Path -LiteralPath $source -PathType Container) { '/D' })
 
     $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
     if ($item -and $item.LinkType -eq 'SymbolicLink') {
@@ -41,11 +50,12 @@ foreach ($link in $links.GetEnumerator()) {
             Write-Host "ok: $path"
             continue
         }
-        Invoke-Change "remove link $path -> $current" { Remove-Item -LiteralPath $path -Force }
+        # PowerShell 5.1's Remove-Item can delete a folder link's contents; Delete() removes only the link.
+        Invoke-Change "remove link $path -> $current" { $item.Delete() }
     } elseif ($item -is [IO.FileInfo]) {
         Invoke-Change "move $path -> $path.backup.$stamp" { Move-Item -LiteralPath $path -Destination "$path.backup.$stamp" }
     } elseif ($item) {
-        throw "$path exists and is not a file"
+        throw "$path exists and is not a file or link; move it out of the way first"
     }
 
     $parent = Split-Path $path
@@ -54,7 +64,7 @@ foreach ($link in $links.GetEnumerator()) {
     }
     # PowerShell 5.1's New-Item needs admin for symlinks even in Developer Mode; mklink doesn't.
     Invoke-Change "link $path -> $source" {
-        cmd /c mklink $path $source | Out-Null
+        cmd /c mklink @flags $path $source | Out-Null
         if ($LASTEXITCODE) { throw "mklink failed for $path" }
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Links the shared agent instructions into Claude Code, Codex and OpenCode.
+# Links the shared agent instructions and skills into Claude Code, Codex and OpenCode.
 # Usage: ./install.sh [-n|--dry-run]
 set -euo pipefail
 
@@ -51,7 +51,7 @@ clear_target() {
   elif [ -f "$target" ]; then
     run mv "$target" "$target.backup.$stamp"
   elif [ -e "$target" ]; then
-    echo "error: $target exists and is not a file" >&2
+    echo "error: $target exists and is not a file or link; move it out of the way first" >&2
     exit 1
   fi
 }
@@ -60,21 +60,29 @@ stow_file() {
   local package=$1 path=$2
   is_linked "$HOME/$path" "$repo/$package/$path" && return
   clear_target "$HOME/$path"
-  run stow --no-folding -v -d "$repo" -t "$HOME" "$package"
+  # .agents holds only skill folders, which link_to links whole; --no-folding would link them file by file.
+  run stow --no-folding --ignore='\.agents' -v -d "$repo" -t "$HOME" "$package"
 }
 
-link_shared() {
-  local target=$1
-  is_linked "$target" "$shared" && return
+link_to() {
+  local target=$1 source=$2
+  is_linked "$target" "$source" && return
   clear_target "$target"
   [ -d "$(dirname "$target")" ] || run mkdir -p "$(dirname "$target")"
-  run ln -s "$shared" "$target"
+  run ln -s "$source" "$target"
 }
 
 stow_file agents .config/agents/AGENTS.md
 stow_file claude .claude/CLAUDE.md
-link_shared "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
-link_shared "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/AGENTS.md"
+link_to "${CODEX_HOME:-$HOME/.codex}/AGENTS.md" "$shared"
+link_to "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/AGENTS.md" "$shared"
+# Codex and OpenCode read ~/.agents/skills; Claude Code reads only ~/.claude/skills.
+for skill in "$repo"/agents/.agents/skills/*/; do
+  [ -d "$skill" ] || continue
+  skill=${skill%/}
+  link_to "$HOME/.agents/skills/${skill##*/}" "$skill"
+  link_to "$HOME/.claude/skills/${skill##*/}" "$skill"
+done
 
 if $dry_run; then
   echo "dry run: $changes change(s) planned, nothing changed"
