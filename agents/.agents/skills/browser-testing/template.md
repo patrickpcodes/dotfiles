@@ -35,7 +35,7 @@ Dev only. {{CREDENTIALS_NOTE}}
 
 ## 3. Driving the browser
 
-These tools come from T3 Code. Their prefix depends on the agent: `mcp__t3-code__` in Claude Code, `mcp__t3_code__` in Codex. In Claude Code, load them first with ToolSearch:
+These tools come from T3 Code. Each agent adds its own prefix to their names, such as `mcp__t3-code__` in Claude Code and `mcp__t3_code__` in Codex. In other agents, look for the names that end in `preview_open`, `preview_act` and so on. In Claude Code, load them first with ToolSearch:
 `select:mcp__t3-code__preview_open,mcp__t3-code__preview_evaluate,mcp__t3-code__preview_navigate,mcp__t3-code__preview_snapshot,mcp__t3-code__preview_status,mcp__t3-code__preview_dialog,mcp__t3-code__preview_act,mcp__t3-code__preview_resize,mcp__t3-code__t3_preview_close`
 
 - Open: `preview_open({ url, reuseExistingTab: false })`. Use `profileId: "incognito"` for a clean session or a second login.
