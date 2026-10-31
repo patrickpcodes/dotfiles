@@ -48,10 +48,10 @@ These tools come from T3 Code. Their prefix depends on the agent: `mcp__t3-code_
 - Window size: `preview_resize({ mode: "freeform", width: 1280, height: 900 })`.
   - If the preview panel is hidden, the new size only applies after the next `preview_navigate`.
   - Some layouts are only built when the page loads narrow. Reload after resizing to a phone size.
-- Log in:
+- Log in. Replace `LOGIN` and `PASSWORD` with JSON string literals (what `JSON.stringify` returns), so a quote or backslash in a password can't break the code:
   ```js
   const s=(sel,v)=>{const e=document.querySelector(sel);Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e),'value').set.call(e,v);['input','change','blur'].forEach(t=>e.dispatchEvent(new Event(t,{bubbles:true})))};
-  s('{{USER_SELECTOR}}','<login>'); s('{{PASSWORD_SELECTOR}}','<password>');
+  s('{{USER_SELECTOR}}',LOGIN); s('{{PASSWORD_SELECTOR}}',PASSWORD);
   document.querySelector('{{SUBMIT_SELECTOR}}').click();
   ```
 - **15 s limit per evaluate.** For longer flows, start async work and store the result, then poll in later calls:

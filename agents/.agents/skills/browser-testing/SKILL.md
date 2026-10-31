@@ -51,9 +51,9 @@ Never guess a value the user didn't give and the repo didn't show. Leave its lin
 
 ### 2c. Write the doc
 
-1. Fill [template.md](template.md) (placeholders below). Replace every `{{...}}`. Delete each line, row or paragraph whose value is unknown or doesn't apply. Grep the result for `{{` and fix any hit.
+1. Fill [template.md](template.md) (placeholders below). Replace every `{{...}}`. Delete each line, row or paragraph whose value is unknown or doesn't apply. Grep the result for `{{` and fix any hit. Leave passwords out for now, even if they go in the doc.
 2. Keep sections 3 to 6 as written, apart from their placeholders.
-3. If passwords are in the doc, check it's ignored by version control: `git check-ignore -q <path>` (exit code 0 means ignored) or `svn status <path>` (`I` means ignored). If it isn't, ask before adding it to `.gitignore` or `svn:ignore`.
+3. If passwords go in the doc, check it's ignored by version control: `git check-ignore -q <path>` (exit code 0 means ignored) or `svn status <path>` (`I` means ignored). If it isn't, ask before adding it to `.gitignore` or `svn:ignore`. Add the passwords only once the doc is ignored. If the user doesn't want it ignored, keep passwords out and switch `CREDENTIALS_NOTE` to the `request_secret` wording.
 4. Ask whether to add a one-line pointer to the doc in the repo's AGENTS.md (or CLAUDE.md), so other sessions find it.
 5. Don't commit.
 6. Give the user the doc's path, what came from the scan and what came from them, and any lines left out.
