@@ -15,6 +15,57 @@ Example:
 
 Programs still read files from `~/.config/...`, but the actual tracked files live in `~/dotfiles`.
 
+## Agent instructions
+
+One `AGENTS.md` holds my personal instructions for every coding agent. Claude Code, Codex and OpenCode all read it through links into this repo.
+
+| Home folder path | Links to | Read by |
+| --- | --- | --- |
+| `~/.config/agents/AGENTS.md` | `agents/.config/agents/AGENTS.md` | Claude Code, through the import in `CLAUDE.md` |
+| `~/.claude/CLAUDE.md` | `claude/.claude/CLAUDE.md` | Claude Code |
+| `~/.codex/AGENTS.md` (or `$CODEX_HOME/AGENTS.md`) | `agents/.config/agents/AGENTS.md` | Codex |
+| `~/.config/opencode/AGENTS.md` | `agents/.config/agents/AGENTS.md` | OpenCode |
+
+`claude/.claude/CLAUDE.md` imports `@~/.config/agents/AGENTS.md`. That path is a link the installer creates, so the import works wherever this repo is cloned.
+
+A repo's own `AGENTS.md` is loaded by Codex and OpenCode. Claude Code loads it only when the repo has no `CLAUDE.md`, so `CLAUDE.md` tells Claude to read it in the other cases.
+
+### Why the installers create two links themselves
+
+Codex and OpenCode need the same file at two more paths. Stow links each package file to one place, so sharing a file across packages would mean committing symlinks, which Git on Windows often checks out as plain text files. Instead the shared file lives once in the `agents` package, Stow links the `agents` and `claude` packages, and the installers link the Codex and OpenCode paths straight to the shared file.
+
+### Install
+
+Both installers can be rerun safely. They leave correct links alone, replace links that point elsewhere, move a real file to `<file>.backup.<timestamp>` before replacing it, and print every change. They don't touch `~/.claude/settings.json` or `~/.codex/config.toml`.
+
+Windows (needs Developer Mode or an admin shell to create symlinks):
+
+```powershell
+cd F:\Repositories\dotfiles   # wherever this repo is cloned
+.\install.ps1 -DryRun         # -DryRun = list the changes without making them
+.\install.ps1                 # create the links
+```
+
+Linux and macOS:
+
+```bash
+sudo pacman -S stow           # Arch/Omarchy; Debian/Ubuntu: sudo apt install stow; macOS: brew install stow
+cd ~/dotfiles
+./install.sh --dry-run        # --dry-run (or -n) = list the changes without making them
+./install.sh                  # stow agents + claude, then link the Codex and OpenCode paths
+```
+
+To check, start a new session and ask which letters label Next Action Options (`j, k, l, o, p`). In Claude Code, `/context` lists `~/.claude/CLAUDE.md` and `~/.config/agents/AGENTS.md` under Memory files.
+
+### Adding rules
+
+- **Every tool**: edit `agents/.config/agents/AGENTS.md`. Keep the wording tool-neutral.
+- **Claude Code only**: add them to `claude/.claude/CLAUDE.md`, below the import.
+- **Codex only**: Codex reads one global file and has no import syntax, and `~/.codex/AGENTS.override.md` replaces `AGENTS.md` instead of adding to it. Put Codex-only rules in `developer_instructions` in `~/.codex/config.toml`, which adds to `AGENTS.md`. That file is machine-local and not managed here.
+- **OpenCode only**: list extra files in `instructions` in `opencode.json`; they are added to `AGENTS.md`.
+
+Changes apply to new sessions.
+
 ## Repository structure
 
 Each top-level folder is a `stow` package.
@@ -23,10 +74,18 @@ Example:
 
 ```text
 ~/dotfiles/
+  install.sh
+  install.ps1
+  agents/
+    .config/
+      agents/
+        AGENTS.md
+  claude/
+    .claude/
+      CLAUDE.md
   opencode/
     .config/
       opencode/
-        AGENTS.md
         opencode.json
   nvim/
     .config/
@@ -134,6 +193,7 @@ On a new machine:
 ```bash
 git clone <repo-url> ~/dotfiles
 cd ~/dotfiles
+./install.sh
 stow opencode
 stow nvim
 ```
