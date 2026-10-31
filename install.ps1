@@ -18,7 +18,7 @@ $links = [ordered]@{
     (Join-Path $configHome 'opencode\AGENTS.md') = $shared
 }
 # Codex and OpenCode read ~/.agents/skills; Claude Code reads only ~/.claude/skills.
-foreach ($skill in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'agents\.agents\skills') -Directory) {
+foreach ($skill in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'agents\.agents\skills') -Directory -ErrorAction SilentlyContinue) {
     $links[(Join-Path $HOME ".agents\skills\$($skill.Name)")] = $skill.FullName
     $links[(Join-Path $HOME ".claude\skills\$($skill.Name)")] = $skill.FullName
 }

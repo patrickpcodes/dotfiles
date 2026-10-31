@@ -60,8 +60,8 @@ stow_file() {
   local package=$1 path=$2
   is_linked "$HOME/$path" "$repo/$package/$path" && return
   clear_target "$HOME/$path"
-  # Skill folders are linked whole by link_to; --no-folding would link them file by file.
-  run stow --no-folding --ignore='\.agents/skills' -v -d "$repo" -t "$HOME" "$package"
+  # .agents holds only skill folders, which link_to links whole; --no-folding would link them file by file.
+  run stow --no-folding --ignore='\.agents' -v -d "$repo" -t "$HOME" "$package"
 }
 
 link_to() {

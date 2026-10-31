@@ -75,7 +75,7 @@ Each of my own skills lives once in `agents/.agents/skills/`. Claude Code doesn'
 | `~/.agents/skills/<name>` | `agents/.agents/skills/<name>` | Codex, OpenCode |
 | `~/.claude/skills/<name>` | `agents/.agents/skills/<name>` | Claude Code, OpenCode |
 
-Each skill folder gets its own link, not the whole skills folder, because both folders also hold skills installed from elsewhere. `install.sh` tells stow to skip `.agents/skills`, because `--no-folding` would link each skill file separately.
+Each skill folder gets its own link, not the whole skills folder, because both folders also hold skills installed from elsewhere. `install.sh` tells stow to skip `.agents`, because `--no-folding` would link each skill file separately, and a `~/.agents` link to somewhere else would make stow stop.
 
 OpenCode finds each skill in both folders and logs a "duplicate skill name" warning, but loads one copy, and both are the same files. Setting `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1` removes the warning, but OpenCode then also stops loading the skills in `~/.claude/skills` that aren't in this repo.
 
