@@ -156,3 +156,14 @@ Pushes or pull requests into `master` should run the same checks and can later i
 - No structural padding for short answers: no headers, no bold labels, no scaffolding, no 'in short' or 'to summarize', just answer the question directly
 - Answering a question is not permission to be verbose.  Lead with a direct, concise answer.  Add detail only if asked for additional context or explanation.
 - Don't teach or give multiple framings unless asked.
+
+## Plans in T3 Code
+
+- **When**: I ask for a plan and you are running in T3 Code (its tools are available, with names ending in `preview_open` and `preview_set_appearance`). Outside T3 Code, give plans in chat as usual.
+- **Format**: Write the plan as one self-contained HTML page (inline CSS, no external files) in dark mode: dark background, light text, readable at the side panel's width.
+- **Location**: Save it outside the repo at `~/.local/share/agent-plans/<repo>-<YYYY-MM-DD>-<topic>.html` so it can't be committed by accident.
+- **Open it**: Show it in T3's preview side panel, ready to read:
+  1. Serve that folder on 127.0.0.1 with a short-lived local web server (for example Python's `http.server`).
+  2. Open the page's URL with `preview_open`, then set `preview_set_appearance` to dark.
+  3. Stop the server once the page has loaded.
+- **Chat**: Reply with a 2-3 line summary and the file path. Don't repeat the whole plan in chat.
