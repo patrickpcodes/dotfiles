@@ -5,6 +5,7 @@
 Writes NAME.html (every diff) and NAME-summary.html (no diffs, small enough to preview inline).
 """
 import argparse
+import hashlib
 import html
 import json
 import pathlib
@@ -17,6 +18,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 HUNK = re.compile(r"^(@@|##) -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? (@@|##)")
 STATUS = {"Added": "A", "Modified": "M", "Deleted": "D", "Renamed": "R"}
 INLINE_LIMIT = 512_000
+REVIEW = re.compile(r"<!--review-->.*?<!--/review-->\n?", re.S)
 
 
 def esc(s):
@@ -73,8 +75,7 @@ def md(body):
     return "".join(out)
 
 
-def read_diff(path):
-    data = path.read_bytes()
+def decode(data):
     for enc in ("utf-8-sig", "cp1252"):
         try:
             return data.decode(enc)
@@ -232,7 +233,7 @@ def section_html(s):
     return "".join(parts)
 
 
-def build(changes, report, parsed, prefix, out_path, summary_name, summary, limit):
+def build(changes, report, parsed, hashes, slug, prefix, out_path, summary_name, summary, limit):
     files = {f["path"]: f for f in changes["files"]}
     names = [p.rsplit("/", 1)[-1] for p in files]
 
@@ -336,11 +337,13 @@ def build(changes, report, parsed, prefix, out_path, summary_name, summary, limi
             else:
                 block = f'<pre class="diff"><code>{code(rows, limit, len(rows), f["diff"])}</code></pre>'
             note_html = "".join(f'<p class="file-note">{esc(n)}</p>' for n in notes)
-            body.append(f'''<article class="file-card" id="f{f["id"]}">
+            body.append(f'''<article class="file-card" id="f{f["id"]}" data-path="{esc(p)}" data-hash="{hashes[p]}">
 <header><div class="name"><span class="dir">{esc(d + "/" if d else "")}</span><strong>{esc(b)}</strong></div>
-<div class="tags">{pill(f)}{counts(f)}</div></header>
+<div class="tags">{pill(f)}{counts(f)}<label class="rv" title="Tick when you have reviewed this file"><input type="checkbox" autocomplete="off"><span>Reviewed</span></label></div></header>
+<p class="stale-note" hidden>This file's diff changed after you ticked it. Review it again.</p>
 <p class="why">{why}</p>{note_html}
 {block}
+<div class="card-foot"><button type="button">Reviewed, next file &rsaquo;</button></div>
 </article>''')
         if not summary:
             body.append("</section>")
@@ -357,7 +360,9 @@ def build(changes, report, parsed, prefix, out_path, summary_name, summary, limi
 
     title = re.sub(r"[`*]", "", str(report.get("title") or changes["label"]))
     page = (HERE.parent / "assets" / "template.html").read_text(encoding="utf-8")
-    for key, value in (("TITLE", esc(title)), ("TOC", "".join(toc)), ("MAIN", "\n".join(main))):
+    if summary:
+        page = REVIEW.sub("", page)
+    for key, value in (("TITLE", esc(title)), ("REVIEW_KEY", esc(slug)), ("TOC", "".join(toc)), ("MAIN", "\n".join(main))):
         page = page.replace("{{" + key + "}}", value)
     return page
 
@@ -379,7 +384,9 @@ def main():
         print("report.json needs fixing:\n  " + "\n  ".join(errors))
         sys.exit(1)
 
-    parsed = {f["path"]: parse(read_diff(d / f["diff"])) for f in changes["files"]}
+    raw = {f["path"]: (d / f["diff"]).read_bytes() for f in changes["files"]}
+    parsed = {p: parse(decode(data)) for p, data in raw.items()}
+    hashes = {p: hashlib.sha1(data).hexdigest()[:12] for p, data in raw.items()}
     prefix = common_dir(list(parsed))
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", changes["label"]).strip("-") or "change-report"
     out = pathlib.Path(a.out) if a.out else d / f"{slug}-changes.html"
@@ -387,7 +394,7 @@ def main():
         out = d / out
     summary_out = out.with_name(out.stem + "-summary.html")
     for path, summary in ((out, False), (summary_out, True)):
-        page = build(changes, report, parsed, prefix, out, summary_out.name, summary, a.max_lines)
+        page = build(changes, report, parsed, hashes, slug, prefix, out, summary_out.name, summary, a.max_lines)
         path.write_text(page, encoding="utf-8")
         size = len(page)
         flag = "" if size <= INLINE_LIMIT else "  (over the 512,000-char inline preview limit)"

@@ -150,6 +150,11 @@ python ~/.agents/skills/change-report/scripts/render.py <out>            # optio
 ```
 
 - **Output:** `<label>-changes.html` (every diff) and `<label>-changes-summary.html` (no diffs). `<label>` is the changelist or branch name made file-safe, so `feature/x` becomes `feature-x`. It prints each page's size.
+- **Review ticks:** the full page lets the reader tick off each file as they review it. The summary page has no file cards, so it has none.
+  - Each file card has a "Reviewed" checkbox and a "Reviewed, next file" button. A ticked card collapses to its header. A bar at the bottom shows the count and has Next unreviewed, Hide reviewed, Export, Import and Reset.
+  - Ticks are kept in the browser's localStorage, so they are per browser and per address. The same page opened as `file://` and as `http://127.0.0.1:<port>` does not share them. Export and Import move them between addresses and browsers.
+  - A tick is tied to the file's diff. If you collect again and a file's diff changed, its tick is cleared and the card says to review it again. Ticks on unchanged files stay.
+  - Where the browser can't save (a private window or a sandboxed frame), ticks last for the session and the bar says to use Export.
 - **If report.json is incomplete,** it lists every gap and writes nothing. Fix them and run it again.
 - **Page size:** the full page has no size limit, since it's opened from disk. Lower `--max-lines` (the per-file diff cut) only if the page gets slow at several MB.
 
@@ -160,10 +165,11 @@ Then look at the page with headless Chrome. Use forward slashes in the `file:///
 ```
 
 - Headless Chrome doesn't scroll to a `#hash`. To see one part, add `?only=<id>` to the URL (for example `?only=s-testing`, `?only=g-portal` or `?only=f07`). The page then shows only the title and that part.
-- Check three things:
+- Check four things:
   - the Mermaid diagram rendered (the zoom label shows a percentage, not "Error")
   - the testing table reads right
   - no text overflows
+  - the bar at the bottom of the full page reads "0 of N files reviewed", with N the file count
 
 ## 6. Deliver
 
@@ -175,3 +181,4 @@ Then look at the page with headless Chrome. Use forward slashes in the `file:///
   - the full page's path
   - the file count and +/- lines
   - anything skipped or marked "Not run"
+  - if you rendered again after the user started reviewing: which files' diffs changed, since those lose their ticks

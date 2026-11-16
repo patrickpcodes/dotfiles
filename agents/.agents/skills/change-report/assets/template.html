@@ -155,6 +155,42 @@ html.embed {
 .embed .wrap { display: block; }
 .embed .toc { display: none; }
 </style>
+<!--review-->
+<style>
+.stale-note { margin: 0; padding: 6px 14px; border-bottom: 1px solid var(--border); border-left: 3px solid var(--red); color: var(--red); font-size: 12px; font-weight: 600; }
+.rv { display: inline-flex; gap: 6px; align-items: center; font: 600 12px var(--font); cursor: pointer; padding: 3px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); user-select: none; white-space: nowrap; }
+.rv:hover { border-color: var(--add); }
+.rv input { accent-color: var(--add); width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.file-card.reviewed { border-color: var(--add); }
+.file-card.reviewed > header { background: var(--add-bg); border-bottom-color: transparent; cursor: pointer; }
+.file-card.reviewed .rv { border-color: var(--add); color: var(--add); }
+.file-card.reviewed:not(.open) > :not(header) { display: none; }
+.file-card.reviewed.open > header { border-bottom-color: var(--border); }
+.card-foot { display: flex; justify-content: flex-end; padding: 8px 14px; border-top: 1px solid var(--border); background: var(--surface2); }
+.card-foot button, .rbar button { font: 600 12px var(--font); padding: 5px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; }
+.card-foot button:hover, .rbar button:hover { border-color: var(--teal); }
+.card-foot button, .rbar button.primary { background: var(--teal); border-color: var(--teal); color: var(--bg); }
+.rbar button:disabled { opacity: .5; cursor: default; }
+.toc a.file.done { color: var(--add); opacity: .75; }
+.toc a.file.done::before { content: "\2713  "; }
+.toc a.sec.done::after { content: "  \2713"; color: var(--add); }
+.glance tr.done td:first-child a::before { content: "\2713  "; color: var(--add); }
+.glance tr.done td { opacity: .7; }
+.sec-head span.rv-all { color: var(--add); }
+body, .embed body { padding-bottom: 120px; }
+body.hide-reviewed .file-card.reviewed, body.hide-reviewed .toc a.file.done { display: none; }
+.rbar { position: fixed; left: 12px; right: 12px; bottom: 14px; margin: 0 auto; width: fit-content; z-index: 60; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: center; padding: 8px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, .28); font-size: 12px; }
+.rbar .count b { font: 600 14px var(--mono); }
+.rbar .meter { width: 130px; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+.rbar .meter i { display: block; height: 100%; width: 0; background: var(--add); transition: width .2s; }
+.rbar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; user-select: none; white-space: nowrap; }
+.rbar label input { accent-color: var(--teal); margin: 0; }
+.rbar .warn { color: var(--red); font-weight: 600; }
+@media (min-width: 1001px) { .toc { max-height: calc(100dvh - 48px - var(--rbar-h, 60px)); } }
+@media (max-width: 1000px) { .file-card .tags { flex-wrap: wrap; } .rbar .meter { display: none; } }
+@media print { .rbar, .card-foot { display: none; } }
+</style>
+<!--/review-->
 <script>if (self !== top) document.documentElement.classList.add('embed');</script>
 </head>
 <body>
@@ -182,6 +218,153 @@ html.embed {
   targets.forEach(t => observer.observe(t));
 })();
 </script>
+<!--review-->
+<div class="rbar" id="rbar" role="region" aria-label="Review progress" data-key="{{REVIEW_KEY}}">
+  <span class="count" id="rv-count"></span>
+  <span class="meter"><i id="rv-meter"></i></span>
+  <button type="button" class="primary" id="rv-next">Next unreviewed</button>
+  <label><input type="checkbox" id="rv-hide" autocomplete="off"> Hide reviewed</label>
+  <button type="button" id="rv-export" title="Save your ticks to a file">Export</button>
+  <button type="button" id="rv-import" title="Load ticks from an exported file">Import</button>
+  <button type="button" id="rv-reset">Reset</button>
+  <input type="file" id="rv-file" accept=".json,application/json" hidden>
+  <span class="warn" id="rv-warn" hidden>Ticks can't be saved in this browser. Use Export.</span>
+</div>
+<script>
+(function () {
+  const bar = document.getElementById('rbar');
+  const cards = [...document.querySelectorAll('.file-card')];
+  if (!cards.length) { bar.remove(); return; }
+  const KEY = 'change-review:' + bar.dataset.key, HIDE = KEY + ':hide';
+  const $ = id => document.getElementById(id);
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const links = cards.map(c => [...document.querySelectorAll(`#toc a.file[href="#${c.id}"], .glance td:first-child > a[href="#${c.id}"]`)]);
+  const groups = [...document.querySelectorAll('section.group')].map(g => ({
+    cards: cards.filter(c => g.contains(c)),
+    span: g.querySelector('.sec-head span'),
+    links: [...document.querySelectorAll(`#toc a[href="#${g.id}"]`)]
+  }));
+  let state = {}, canSave = true;
+
+  function load() {
+    if (!canSave) return state;
+    let raw;
+    try { raw = localStorage.getItem(KEY); } catch (e) { canSave = false; return state; }
+    try { state = JSON.parse(raw || '{}'); } catch (e) { state = {}; }
+    if (!state || typeof state !== 'object' || Array.isArray(state)) state = {};
+    return state;
+  }
+  function save() {
+    if (!canSave) return;
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { canSave = false; }
+  }
+  const isDone = c => state[c.dataset.path] === c.dataset.hash;
+  const shown = c => c.getClientRects().length > 0;
+
+  function paint() {
+    let done = 0;
+    cards.forEach((c, i) => {
+      const d = isDone(c);
+      if (d) done++;
+      c.classList.toggle('reviewed', d);
+      if (!d) c.classList.remove('open');
+      c.querySelector('.rv input').checked = d;
+      c.querySelector('.stale-note').hidden = d || !own(state, c.dataset.path);
+      links[i].forEach(a => {
+        a.classList.toggle('done', d);
+        const tr = a.closest('tr');
+        if (tr) tr.classList.toggle('done', d);
+      });
+    });
+    groups.forEach(g => {
+      const n = g.cards.filter(isDone).length, all = g.cards.length > 0 && n === g.cards.length;
+      if (g.span) {
+        g.span.textContent = g.cards.length + ' files, ' + n + ' reviewed';
+        g.span.classList.toggle('rv-all', all);
+      }
+      g.links.forEach(a => a.classList.toggle('done', all));
+    });
+    $('rv-count').innerHTML = done === cards.length
+      ? '<b>All ' + cards.length + '</b> files reviewed'
+      : '<b>' + done + '</b> of <b>' + cards.length + '</b> files reviewed';
+    $('rv-meter').style.width = 100 * done / cards.length + '%';
+    $('rv-next').disabled = done === cards.length;
+    $('rv-warn').hidden = canSave;
+  }
+  function set(card, on) {
+    load();
+    if (on) state[card.dataset.path] = card.dataset.hash; else delete state[card.dataset.path];
+    save();
+    paint();
+  }
+  function goNext(from) {
+    const open = c => !isDone(c) && shown(c);
+    let next;
+    if (from) {
+      const i = cards.indexOf(from);
+      next = cards.slice(i + 1).concat(cards.slice(0, i)).find(open);
+    } else {
+      next = cards.find(c => open(c) && c.getBoundingClientRect().top > 60) || cards.find(open);
+    }
+    if (next) next.scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
+
+  cards.forEach(c => {
+    c.querySelector('.rv input').addEventListener('change', e => set(c, e.target.checked));
+    c.querySelector('.card-foot button').addEventListener('click', () => { set(c, true); goNext(c); });
+    c.querySelector('header').addEventListener('click', e => {
+      if (e.target.closest('.rv, a') || !c.classList.contains('reviewed')) return;
+      c.classList.toggle('open');
+    });
+  });
+  $('rv-next').addEventListener('click', () => goNext(null));
+  $('rv-hide').addEventListener('change', e => {
+    document.body.classList.toggle('hide-reviewed', e.target.checked);
+    try { localStorage.setItem(HIDE, e.target.checked ? '1' : ''); } catch (err) { }
+  });
+  $('rv-reset').addEventListener('click', () => {
+    if (confirm('Clear every Reviewed tick on this page?')) { state = {}; save(); paint(); }
+  });
+  $('rv-export').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ key: KEY, saved: new Date().toISOString(), reviewed: load() }, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'change-review-ticks.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  });
+  $('rv-import').addEventListener('click', () => $('rv-file').click());
+  $('rv-file').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const ticks = JSON.parse(await file.text()).reviewed;
+      if (!ticks || typeof ticks !== 'object' || Array.isArray(ticks)) throw new Error('no ticks');
+      load();
+      for (const [path, hash] of Object.entries(ticks)) if (typeof hash === 'string') state[path] = hash;
+      save();
+      paint();
+    } catch (err) { alert('That file is not an exported tick list.'); }
+    e.target.value = '';
+  });
+  addEventListener('storage', e => { if (e.key === KEY || e.key === null) { load(); paint(); } });
+  new ResizeObserver(() => {
+    document.documentElement.style.setProperty('--rbar-h', bar.offsetHeight + 'px');
+    document.body.style.paddingBottom = bar.offsetHeight + 60 + 'px';
+  }).observe(bar);
+
+  try {
+    localStorage.setItem(KEY + ':probe', '1');
+    localStorage.removeItem(KEY + ':probe');
+    if (localStorage.getItem(HIDE)) { $('rv-hide').checked = true; document.body.classList.add('hide-reviewed'); }
+  } catch (err) { canSave = false; }
+  load();
+  paint();
+})();
+</script>
+<!--/review-->
 <script type="module">
 const shells = [...document.querySelectorAll('.diagram-shell')];
 if (shells.length) {
