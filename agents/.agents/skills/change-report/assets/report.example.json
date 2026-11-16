@@ -1,0 +1,37 @@
+{
+  "title": "Branch `feature/order-export`",
+  "subtitle": "Admins can export a month of orders as CSV from the Orders page.",
+  "sections": [
+    {"id": "goal", "title": "Goal", "body": [
+      "Finance copied orders out of the Orders grid by hand each month.",
+      "",
+      "The project set out to export one month of orders as a CSV file that opens cleanly in Excel."
+    ]},
+    {"id": "approach", "title": "How we achieved it", "body": [
+      "- **Streamed on the server.** `ExportOrdersAsync` writes rows as it reads them, so a large month doesn't sit in memory.",
+      "- **Same filters as the grid.** The export takes the grid's current filter, so what you see is what you get."
+    ]},
+    {"id": "flow", "title": "Architecture and flow", "body": "From the button to the file.",
+     "mermaid": "flowchart TD\n  ui[\"Orders page<br/>Export button\"] -->|GET /orders/export| api[\"OrdersController.Export\"]\n  api --> svc[\"OrderExportService\"]\n  svc --> db[(\"Orders table\")]",
+     "caption": "Optional one-line caption under the diagram."},
+    {"id": "reach", "title": "Changes that reach other features", "body": "None. Every change is inside the Orders feature."},
+    {"id": "testing", "title": "Testing and verification", "body": "Run on 2026-10-30.",
+     "table": {"columns": ["Check", "Result", "When"], "rows": [
+       ["Unit tests", "Pass: 214 of 214", "2026-10-30"],
+       ["Integration tests", "Not run (Docker not available)", ""]
+     ]}},
+    {"id": "deploy", "title": "Deployment notes", "body": "No database change. Set `Export:MaxRows` in app settings (default 50000)."},
+    {"id": "risks", "title": "Risks and follow-ups", "body": ["- Months over 50,000 orders are cut off; follow-up to page the export."]}
+  ],
+  "groups": [
+    {"id": "server", "title": "Server", "blurb": "The export endpoint and the service behind it.", "files": ["src/Orders/OrderExportService.cs", "src/Orders/OrdersController.cs"]},
+    {"id": "ui", "title": "Portal", "blurb": "", "files": ["web/orders/export-button.tsx"]},
+    {"id": "tests", "title": "Tests", "blurb": "", "files": ["tests/Orders/OrderExportServiceTests.cs"]}
+  ],
+  "why": {
+    "src/Orders/OrderExportService.cs": "Streams a month of orders as CSV, using the grid's filter so the file matches the screen.",
+    "src/Orders/OrdersController.cs": "Adds GET /orders/export for admins and passes the grid filter through.",
+    "web/orders/export-button.tsx": "The Export button, disabled while a download is running so it can't be clicked twice.",
+    "tests/Orders/OrderExportServiceTests.cs": "Covers quoting of commas and line breaks, the row cap and the admin-only check."
+  }
+}
