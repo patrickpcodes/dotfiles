@@ -160,10 +160,11 @@ Pushes or pull requests into `master` should run the same checks and can later i
 ## Plans in T3 Code
 
 - **When**: I ask for a plan and you are running in T3 Code (its tools are available, with names ending in `preview_open` and `preview_set_appearance`). Outside T3 Code, give plans in chat as usual.
+- **Side panel, not inline**: Show plans in T3's preview side panel. Don't render them in the thread with `html_render`. This is my standing request, so the short-lived local server below is intended, even where T3's defaults say to render HTML inline without a server.
 - **Format**: Write the plan as one self-contained HTML page (inline CSS, no external files) in dark mode: dark background, light text, readable at the side panel's width.
 - **Location**: Save it outside the repo at `~/.local/share/agent-plans/<repo>-<YYYY-MM-DD>-<topic>.html` so it can't be committed by accident.
-- **Open it**: Show it in T3's preview side panel, ready to read:
-  1. Serve that folder on 127.0.0.1 with a short-lived local web server (for example Python's `http.server`).
-  2. Open the page's URL with `preview_open`, then set `preview_set_appearance` to dark.
-  3. Stop the server once the page has loaded.
+- **Open it**: The side panel only opens http(s) pages, so:
+  1. Serve that folder in the background on a free loopback port and read the port it prints: `python3 -u -m http.server 0 --bind 127.0.0.1 --directory ~/.local/share/agent-plans`.
+  2. Open the page with `preview_open`, passing `target: {kind: "environment-port", port: <port>, path: "/<file>.html"}`, then set `preview_set_appearance` to dark.
+  3. Stop the server once the page has loaded. Leave the tab open; it's for me.
 - **Chat**: Reply with a 2-3 line summary and the file path. Don't repeat the whole plan in chat.
