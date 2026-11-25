@@ -171,6 +171,10 @@ Runs smoke tests in T3's preview browser, so it works only in threads where T3 p
 
 Builds one HTML page for a set of code changes: the goal, the approach, testing and deployment notes, then every changed file's diff with a one-line reason. It works for SVN changelists and working copies, and for Git branches and worktrees. If you don't name a changelist or branch, it lists them and asks which one. The agent runs `scripts/collect.py` to gather one diff per file, writes the narrative and the reasons into a `report.json`, then runs `scripts/render.py` to write the page and a summary page without diffs. On the full page you can tick off each file as you review it; the ticks are kept in the browser, per address, and a file whose diff changes loses its tick. Both scripts need only Python 3.9+, and they write into the output folder you give them, never into the skill folder. `SKILL.md` refers to `~/.agents/skills/change-report/scripts/`, so keep that link.
 
+### dual-review
+
+Reviews a GitHub PR twice in parallel before merge: once with Codex (`gpt-6-astra`, max reasoning effort) and once with Claude Opus (`claude-opus-5-5`, max effort). It starts both through T3's `delegate_task`, so it works only in T3 Code threads. Each reviewer runs read-only in its own T3 thread and gets the same brief, `brief.md`. When both finish, the thread that ran the skill compares the reports, checks findings only one reviewer raised, and recommends what to fix. It never edits, comments or merges. Override a model or effort level with arguments, for example `/dual-review 231 codex=gpt-6.1-sol`.
+
 ## Repository structure
 
 Each top-level folder is a `stow` package.
@@ -192,6 +196,9 @@ Example:
           SKILL.md
           scripts/
           assets/
+        dual-review/
+          SKILL.md
+          brief.md
     .config/
       agents/
         AGENTS.md
