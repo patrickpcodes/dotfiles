@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set +x
+set -euo pipefail
+
+if [[ $# != 0 ]]; then
+    printf '%s\n' 'Usage: bash ~/dotfiles/scripts/opencode-set-linear-key' \
+        'The API key is prompted privately, never accepted as an argument.' >&2
+    exit 2
+fi
+if [[ ! -t 0 || ! -t 1 ]]; then
+    printf '%s\n' 'Run from an interactive terminal without redirecting input/output.' >&2
+    exit 2
+fi
+
+directory="$HOME/.local/share/opencode/secrets"
+target="$directory/linear-api-key"
+for path in "$HOME" "$HOME/.local" "$HOME/.local/share" "$HOME/.local/share/opencode" "$directory" "$target"; do
+    if [[ -L "$path" ]]; then
+        printf '%s\n' 'Refusing a symlink in the secret path; inspect the local path.' >&2
+        exit 1
+    fi
+done
+if [[ -e "$target" && ! -f "$target" ]]; then
+    printf '%s\n' 'Refusing a non-file secret target; inspect the local path.' >&2
+    exit 1
+fi
+
+umask 077
+install -d -m 700 -- "$directory"
+IFS= read -r -s -p 'Linear API key (hidden): ' linear_key
+printf '\n'
+if [[ -z "$linear_key" || "$linear_key" == *[[:space:]]* ]]; then
+    unset linear_key
+    printf '%s\n' 'The key must be nonempty and contain no whitespace. Existing key unchanged.' >&2
+    exit 1
+fi
+
+temporary=$(mktemp "$directory/.linear-api-key.XXXXXX")
+trap 'rm -f -- "$temporary"' EXIT
+printf '%s' "$linear_key" > "$temporary"
+unset linear_key
+chmod 600 "$temporary"
+mv -fT -- "$temporary" "$target"
+printf '%s\n' 'Stored the key outside Git with owner-only permissions.' \
+    'Restart OpenCode to load it. Verify with: opencode mcp list'
