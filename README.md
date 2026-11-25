@@ -177,7 +177,7 @@ Reviews a GitHub PR twice in parallel before merge: once with Codex (`gpt-6-astr
 
 ## Repository structure
 
-Each top-level folder is a `stow` package.
+Each top-level folder except `docs/` and `scripts/` is a `stow` package. `scripts/` holds helpers you run from the checkout; nothing links them into your home folder.
 
 Example:
 
@@ -209,6 +209,8 @@ Example:
     .config/
       opencode/
         opencode.json
+  scripts/
+    opencode-set-linear-key
   nvim/
     .config/
       nvim/
@@ -352,7 +354,7 @@ On each Linux machine, run this after cloning dotfiles, before starting OpenCode
 # bash runs the tracked helper. It privately prompts for the key and stores it
 # outside Git; no key value is passed as an argument or put into shell history.
 # Expected result: a confirmation of owner-only storage, never the key itself.
-bash ~/dotfiles/opencode/.local/bin/opencode-set-linear-key
+bash ~/dotfiles/scripts/opencode-set-linear-key
 
 # Check MCP connection status after entering the key.
 # Expected result: Linear is connected, if the key has valid workspace permissions.
@@ -368,7 +370,11 @@ until the key expires, is revoked, or permissions change. To rotate it, create
 a replacement in Linear, rerun the helper, restart and verify OpenCode, then
 revoke the old key. Never paste keys into chat, commits, issues, or screenshots.
 
-A missing referenced file can prevent OpenCode configuration from loading.
-An empty placeholder allows the reference to resolve but cannot authenticate.
-Populate the file on every new machine before expecting Linear tools to work.
+If the referenced file is missing, OpenCode rejects the whole config and won't
+start, not just Linear. An empty placeholder lets the reference resolve but can't
+authenticate. Populate the file on every new machine before starting OpenCode.
+
+`~/.config/opencode/opencode.json` links into this checkout, so pulling is a
+deploy: on a machine that already stows `opencode`, create the key file before
+pulling the commit that adds the Linear server.
 Do not share resolved config/debug output: substitution can include the key.

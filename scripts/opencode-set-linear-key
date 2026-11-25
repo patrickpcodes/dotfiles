@@ -3,7 +3,7 @@ set +x
 set -euo pipefail
 
 if [[ $# != 0 ]]; then
-    printf '%s\n' 'Usage: bash ~/dotfiles/opencode/.local/bin/opencode-set-linear-key' \
+    printf '%s\n' 'Usage: bash ~/dotfiles/scripts/opencode-set-linear-key' \
         'The API key is prompted privately, never accepted as an argument.' >&2
     exit 2
 fi

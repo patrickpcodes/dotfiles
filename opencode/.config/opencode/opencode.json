@@ -1,6 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "openai/gpt-6-astra",
   "autoupdate": false,
   "mcp": {
     "linear": {
@@ -8,7 +7,7 @@
       "url": "https://mcp.linear.app/mcp",
       "enabled": true,
       "oauth": false,
-      "headers":{
+      "headers": {
         "Authorization": "Bearer {file:~/.local/share/opencode/secrets/linear-api-key}"
       }
     }
