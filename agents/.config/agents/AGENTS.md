@@ -157,3 +157,16 @@ Pushes or pull requests into `master` should run the same checks and can later i
 - No structural padding for short answers: no headers, no bold labels, no scaffolding, no 'in short' or 'to summarize', just answer the question directly
 - Answering a question is not permission to be verbose.  Lead with a direct, concise answer.  Add detail only if asked for additional context or explanation.
 - Don't teach or give multiple framings unless asked.
+
+## Plans in T3 Code
+
+- **When**: I ask you for a plan in my own thread, in T3 Code's normal (Default) mode. You're in T3 Code when its tools are available, with names ending in `preview_open` and `preview_set_appearance`.
+- **Not when**: Outside T3 Code, in T3's Plan mode, or in a delegated or sub-agent run, give the full plan as text, the way that mode or the parent agent asks. Don't write the page or start a server there.
+- **Side panel, not inline**: Show plans in T3's preview side panel. Don't render them in the thread with `html_render`. This is my standing request, so the short-lived local server below is intended, even where T3's defaults say to render HTML inline without a server.
+- **Format**: Write the plan as one self-contained HTML page (inline CSS, no external files) in dark mode: dark background, light text, readable at the side panel's width.
+- **Location**: Save it outside the repo at `~/.local/share/agent-plans/<repo>-<YYYY-MM-DD>-<topic>.html` so it can't be committed by accident. Write `<repo>` and `<topic>` with lowercase letters, digits and hyphens only (for example `dotfiles-2026-11-25-plan-rule.html`), because the file name becomes the page's URL.
+- **Open it**: The side panel only opens http(s) pages, so:
+  1. Serve that folder in the background on a free loopback port and read the port it prints: `python3 -u -m http.server 0 --bind 127.0.0.1 --directory "$HOME/.local/share/agent-plans"`. The quoted `$HOME` path works in bash and PowerShell. On Windows, use `python` instead of `python3` and start it from PowerShell with `Start-Process`, sending its output to a file you read the port from.
+  2. Open the page with `preview_open`, passing `reuseExistingTab: false` and `target: {kind: "environment-port", port: <port>, path: "/<file>.html"}`, then set `preview_set_appearance` to dark on that tab.
+  3. Stop the server once the page has loaded. Leave the tab open; it's for me.
+- **Chat**: Reply with a 2-3 line summary and the file path. Say that the tab can't reload once the server has stopped: to see the plan again, open the file in a browser or ask for it to be shown again. Don't repeat the whole plan in chat.
