@@ -18,7 +18,8 @@ Two reviewers, one Codex and one Opus, review the same PR on their own. Then thi
 
 - PR number: from the arguments. If there isn't one, use `gh pr view --json number` for the current branch. If that finds no PR, ask.
 - Repo path: `git rev-parse --show-toplevel`. Repo name: `gh repo view --json nameWithOwner`.
-- PR facts: `gh pr view <N> --json title,baseRefName,headRefName,state,files`. If the PR is closed or merged, tell the user and ask before going on.
+- PR facts: `gh pr view <N> --json title,baseRefName,headRefName,headRefOid,state,files`. If the PR is closed or merged, tell the user and ask before going on.
+- Commit to review: `headRefOid` from that call. Run `git fetch origin pull/<N>/head` so the commit is available locally; it moves no branch. The reviewers work in this checkout, which may be on another branch, so they read files at that commit and not from the working tree.
 - Focus docs: read the repo's `AGENTS.md`. If it has a `Review focus` section, or a table that maps areas to docs, pick the docs that cover the changed files. Note each one with its key rule in one line.
 
 ## 2. Check the models
@@ -32,7 +33,7 @@ Defaults:
 
 Arguments override them: `codex=<model>`, `opus=<model>`, `codex-effort=<level>`, `opus-effort=<level>`.
 
-Load the T3 tools if they're deferred (in Claude Code: `ToolSearch` with `select:mcp__t3-code__orchestrator_capabilities,mcp__t3-code__delegate_task`). Call `orchestrator_capabilities` once. If a model or effort level isn't listed, call it again with `search`. If it's still missing, tell the user and stop.
+Load the T3 tools if they're deferred (in Claude Code: `ToolSearch` with `select:mcp__t3-code__orchestrator_capabilities,mcp__t3-code__delegate_task`). If `delegate_task` isn't available, tell the user this skill needs T3 Code and stop. Don't substitute another review. Call `orchestrator_capabilities` once. If a model or effort level isn't listed, call it again with `search`. If it's still missing, tell the user and stop.
 
 ## 3. Start both reviewers
 
@@ -49,9 +50,9 @@ Don't use `mode: "wait"`, polling, sleeps, or `task_status` loops. A max-effort 
 
 ## 4. Combined report
 
-When both reports are in, write:
+When both reports are in, run `gh pr view <N> --json headRefOid` again, then write:
 
-1. **Verdicts:** each reviewer's verdict with its T3 thread `link`.
+1. **Verdicts:** the commit that was reviewed, then each reviewer's verdict with its T3 thread `link`. If the PR head has moved since, say that the reviews don't cover the newer commits.
 2. **Agreed:** findings both reviewers raised, merged into one entry each.
 3. **Only Codex** and **Only Opus:** findings only one reviewer raised. Before you list a high or medium one, read the cited `file:line` yourself. Mark it confirmed, plausible or rejected, with a one-line reason. Don't present a claim you haven't checked as fact.
 4. **Disagreements:** where the reviewers conflict, your call, and why.

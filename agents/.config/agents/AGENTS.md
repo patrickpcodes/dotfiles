@@ -148,7 +148,7 @@ Pushes or pull requests into `master` should run the same checks and can later i
 - Do not merge unfinished work into `dev` unless it is safely disabled or behind a feature flag.
 - Keep `master` deployable.
 - Create or link a Linear issue for meaningful implementation work before starting the branch.
-- Before merging any pull request (task, release or hotfix), run the `dual-review` skill (`/dual-review <PR#>`). Patrick reads both reviews and decides which findings to fix. It doesn't replace tests or required checks.
+- In T3 Code, before merging any GitHub pull request (task, release or hotfix), run the `dual-review` skill (`/dual-review <PR#>`). Patrick reads both reviews and decides which findings to fix. It doesn't replace tests or required checks. Where the skill can't run (outside T3 Code, or the pull request isn't on GitHub), say so and ask before merging. Don't substitute another review.
 
 ## Communication
 
