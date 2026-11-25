@@ -312,6 +312,9 @@ and then managed by the same `stow nvim` package.
 
 On a new machine:
 
+The OpenCode package expects a machine-local Linear key file. Before launching
+OpenCode, follow the Linear setup below; the key is not supplied by this repository.
+
 ```bash
 git clone <repo-url> ~/dotfiles
 cd ~/dotfiles
@@ -321,3 +324,51 @@ stow nvim
 ```
 
 If a target file already exists in `~/.config`, back it up first so `stow` has a clear place to create the symlink.
+
+## Linear MCP Secrets
+
+The shared OpenCode config connects to `https://mcp.linear.app/mcp` using API-key
+authentication instead of browser OAuth. Only this reference belongs in Git:
+
+```json
+"Authorization": "Bearer {file:~/.local/share/opencode/secrets/linear-api-key}"
+```
+
+The actual key belongs in `~/.local/share/opencode/secrets/linear-api-key` on each
+machine, outside this repository and all Stow packages. `~` resolves to that
+machine's home directory, so different usernames can share the same config.
+The secret directory is mode `700` and the key is mode `600`: owner-only access.
+This is a plaintext file, not encrypted storage; root and programs running as
+your user can still access it. Avoid shared/plaintext backups of the secret.
+
+Create a dedicated Linear API key per machine, for example `Enterprise OpenCode`,
+with only the team access and permissions needed to read, create, and update
+issues. Keep a recovery copy in your password manager. Separate keys allow a
+lost machine's access to be revoked without disrupting the others.
+
+On each Linux machine, run this after cloning dotfiles, before starting OpenCode:
+
+```bash
+# bash runs the tracked helper. It privately prompts for the key and stores it
+# outside Git; no key value is passed as an argument or put into shell history.
+# Expected result: a confirmation of owner-only storage, never the key itself.
+bash ~/dotfiles/opencode/.local/bin/opencode-set-linear-key
+
+# Check MCP connection status after entering the key.
+# Expected result: Linear is connected, if the key has valid workspace permissions.
+opencode mcp list
+```
+
+Quit and restart running OpenCode instances after changing the config or key.
+OpenCode reads the file directly, so SSH sessions and background processes do
+not need a shell-exported `LINEAR_API_KEY`. No browser callback is required.
+
+The file persists across logout and reboot, but authorization only remains valid
+until the key expires, is revoked, or permissions change. To rotate it, create
+a replacement in Linear, rerun the helper, restart and verify OpenCode, then
+revoke the old key. Never paste keys into chat, commits, issues, or screenshots.
+
+A missing referenced file can prevent OpenCode configuration from loading.
+An empty placeholder allows the reference to resolve but cannot authenticate.
+Populate the file on every new machine before expecting Linear tools to work.
+Do not share resolved config/debug output: substitution can include the key.
